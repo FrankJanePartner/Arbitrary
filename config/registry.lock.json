@@ -1,0 +1,14 @@
+{
+  "sources": {
+    "aave": "6b869334c3715b6657d78c4d3306aaf33cd0c0c8",
+    "uniswap": "1c7597d73be0e9a3a4e44aa75b8fb212b40ea136"
+  },
+  "files": {
+    "chains/1.yaml": "e54eb2581db6d7afa1618693d88d5150cca034924dd1b1b9ff154f1cb1b9b82e",
+    "chains/42161.yaml": "cd6689c1cd7289ca95e4ba773d64505b301e9a9c64b80cca3c43c272a798a9c5",
+    "chains/8453.yaml": "4131ff5c8383e4bff6133eaea93bf94aa23b28f3ffb4217b88b96a2d77fc2b5c",
+    "chains/10.yaml": "3f96353ed48378cf4065eefb3908259d4b2895fa70ae30bf79fb61ab351a1127",
+    "chains/137.yaml": "93e5e008bfeb6a8d76546b17045394ba45f85d070e28c84f0e82b17b168e73b1",
+    "chains/43114.yaml": "b420b9163ad38ca1593bbe023500babf2743400559cd46cae094295b4e400e00"
+  }
+}

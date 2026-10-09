@@ -1,0 +1,32 @@
+name: Arbitrum One
+chain_id: 42161
+native_symbol: ETH
+rpc_env: RPC_42161
+provider: '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'
+pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD'
+oracle: '0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7'
+native_token: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'
+tokens:
+- address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831'
+  symbol: USDC
+  decimals: 6
+  oracle: '0xB0C9A7122aaB68F75CffD9851E867144DBFF113b'
+  loan: true
+- address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'
+  symbol: WETH
+  decimals: 18
+  oracle: '0xbD41b1548a5A06544cBcf87c0c54864312842C00'
+  loan: false
+venues:
+- name: Uniswap V3
+  kind: 2
+  factory: '0x1F98431c8aD98523631AE4a59f267346ea31F984'
+  router: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+  quoter: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e'
+  fee_tiers:
+  - 100
+  - 500
+  - 3000
+  - 10000
+enabled: false
+fee_model: arbitrum

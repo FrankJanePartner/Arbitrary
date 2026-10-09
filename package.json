@@ -1,0 +1,1 @@
+{"name":"arbitrary-contract-tools","private":true,"version":"0.1.0","devDependencies":{"@foundry-rs/forge":"1.7.1","@foundry-rs/anvil":"1.7.1","@openzeppelin/contracts":"5.4.0","solc":"0.8.30"},"scripts":{"contracts:build":"node scripts/compile-contracts.cjs","contracts:test":"forge test --root contracts"}}

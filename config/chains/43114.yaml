@@ -1,0 +1,32 @@
+name: Avalanche C-Chain
+chain_id: 43114
+native_symbol: AVAX
+rpc_env: RPC_43114
+provider: '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'
+pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD'
+oracle: '0xEBd36016B3eD09D4693Ed4251c67Bd858c3c7C9C'
+native_token: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7'
+tokens:
+- address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E'
+  symbol: USDC
+  decimals: 6
+  oracle: '0xb0D7A8bbDcdb1203850b742bB4d7f57a1F1C8483'
+  loan: true
+- address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7'
+  symbol: WAVAX
+  decimals: 18
+  oracle: '0x0A77230d17318075983913bC2145DB16C7366156'
+  loan: false
+venues:
+- name: Uniswap V3
+  kind: 2
+  factory: '0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD'
+  router: '0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE'
+  quoter: '0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F'
+  fee_tiers:
+  - 100
+  - 500
+  - 3000
+  - 10000
+enabled: false
+fee_model: evm

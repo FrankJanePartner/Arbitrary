@@ -1,0 +1,7 @@
+mode: observe
+data_dir: data
+timezone: Africa/Lagos
+poll_seconds: 12
+rpc_rps: 5
+rpc_daily_calls: 10000
+networks: {}
