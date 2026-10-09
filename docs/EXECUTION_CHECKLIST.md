@@ -2,14 +2,14 @@
 
 Date: 8 October 2026 (Africa/Lagos). Companion: [MVP specification and implementation plan](MVP_IMPLEMENTATION_PLAN.md).
 
-This is the master progress record. All boxes begin unchecked because application implementation/deployment has not started. Mark a box only with supporting commit, command result, report or operator record. No completion or profit claim follows from the existence of this checklist.
+This is the master progress record. Implementation has started; see [build status](BUILD_STATUS.md) for current evidence. Unchecked boxes remain unaccepted. Mark a box only with supporting commit, command result, report or operator record. No completion or profit claim follows from the existence of this checklist.
 
 ## A. Before application development
 
 - [x] `FrankJanePartner/Arbitrary` repository verified under the correct personal account; existing public visibility recorded.
-- [ ] `docs/MVP_IMPLEMENTATION_PLAN.md` committed and content verified on GitHub.
-- [ ] `docs/EXECUTION_CHECKLIST.md` committed and content verified on GitHub.
-- [ ] User reviews the written plan; document scope corrections before implementing.
+- [x] `docs/MVP_IMPLEMENTATION_PLAN.md` committed and content verified on GitHub.
+- [x] `docs/EXECUTION_CHECKLIST.md` committed and content verified on GitHub.
+- [x] User reviews the written plan; document scope corrections before implementing.
 - [ ] Record execution approach and development environment.
 - [ ] Preserve personal/company separation; ownership/reuse agreement handled separately before company handover.
 - [ ] Do not add signing keys, RPC credentials or a licence granting public rights by default.
@@ -27,11 +27,11 @@ This is the master progress record. All boxes begin unchecked because applicatio
 
 ## C. Atomic execution contracts — Task 2
 
-- [ ] Implement executor, typed V2/V3 adapters and exported ABI.
+- [x] Implement executor, typed V2/V3 adapters and exported ABI.
 - [ ] Operator/owner/recipient roles are separate and tested.
 - [ ] Only verified provider and current execution context can invoke callback.
-- [ ] Existing contract balance cannot subsidize losing execution.
-- [ ] Principal plus premium remains reserved; only incremental surplus is paid.
+- [x] Existing contract balance cannot subsidize losing execution.
+- [x] Principal plus premium remains reserved; only incremental surplus is paid.
 - [ ] Allowlists, min outputs, route continuity, deadline and pause enforced.
 - [ ] Reentrancy/replay/payout-failure/unauthorized-withdrawal tests pass.
 - [ ] Fuzz/invariant tests and allowance lifecycle checks pass.
@@ -69,11 +69,11 @@ This is the master progress record. All boxes begin unchecked because applicatio
 - [ ] Reorgs and duplicate receipts reconcile without false profit.
 - [ ] Actual payout and all fee components recorded by network/token.
 - [ ] Estimated opportunity and realized net earnings displayed separately.
-- [ ] CSV/JSON exports and daily local report implemented.
+- [x] CSV/JSON exports and daily local report implemented.
 - [ ] Sleep/crash/restart reconciles transactions before new submissions.
-- [ ] Startup does not unexpectedly enable live trading.
-- [ ] One chain failure does not corrupt another chain's worker/accounting.
-- [ ] Local dashboard authentication/CSRF/secret-redaction tests pass.
+- [x] Startup does not unexpectedly enable live trading.
+- [x] One chain failure does not corrupt another chain's worker/accounting.
+- [x] Local dashboard authentication/CSRF/secret-redaction tests pass.
 - [ ] Mobile/desktop controls, six network panels and emergency pause checked.
 
 ## G. Packaging and full-system verification — Tasks 10–11
@@ -161,3 +161,7 @@ Append entries in this form: `date/time | task/checklist section | commit | test
 ## Stop conditions
 
 Wrong chain or bytecode, stale/missing fee conversion, unverified router/token, failed simulation, insufficient gas, exceeded budget, unknown pending nonce, RPC quota exhaustion or unresolved high-risk contract finding must prevent new live submissions. Receipt reconciliation remains available while paused.
+
+## Evidence for checked implementation items
+
+9 October checkpoint: `uv run pytest -q` — 36 passed; `npm run contracts:test` — 9 passed, including 256 fuzz runs. `tests/test_worker.py` covers non-live restart, pause preservation and chain failure isolation; `tests/test_web.py` covers authentication/CSRF and exports; `contracts/test/Executor.t.sol` covers treasury preservation and incremental payouts. These are scoped local tests; the broader unchecked integration/recovery requirements still apply.

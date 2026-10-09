@@ -23,6 +23,15 @@ npm run contracts:build
 npm run contracts:test
 ```
 
+## Open the local dashboard
+
+```sh
+uv run flasharb init
+uv run flasharb serve
+```
+
+Open http://127.0.0.1:8000 on the same computer. All networks start disabled. See [local operations and current limits](docs/LOCAL_OPERATIONS.md) before enabling a network.
+
 ## Project guides
 
 - [MVP specification and implementation plan](docs/MVP_IMPLEMENTATION_PLAN.md)
