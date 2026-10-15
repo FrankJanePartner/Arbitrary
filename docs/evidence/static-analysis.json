@@ -1,0 +1,87 @@
+{
+  "tool": "slither-analyzer 0.11.3",
+  "date": "2026-10-15",
+  "success": true,
+  "scope": "contracts; dependency/test/fork paths filtered",
+  "contract_sha256": "b058175d2081728643b8afd8e9a6f4c71e34a1769dd785b7bb231d8860edcd6c",
+  "findings": [
+    {
+      "check": "reentrancy-no-eth",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "description": "Reentrancy in FlashArbitrageExecutor.execute(bytes32,address,uint256,FlashArbitrageExecutor.Hop[],uint256,uint256) (src/FlashArbitrageExecutor.sol#44-60):\n\tExternal calls:\n\t- IAavePool(POOL).flashLoanSimple(address(this),asset,amount,params,0) (src/FlashArbitrageExecutor.sol#57)\n\tState variables written after the call(s):\n\t- phase = 0 (src/FlashArbitrageExecutor.sol#59)\n\tFlashArbitrageExecutor.phase (src/FlashArbitrageExecutor.sol#26) can be used in cross function reentrancies:\n\t- FlashArbitrageExecutor.execute(bytes32,address,uint256,FlashArbitrageExecutor.Hop[],uint256,uint256) (src/FlashArbitrageExecutor.sol#44-60)\n\t- FlashArbitrageExecutor.executeOperation(address,uint256,uint256,address,bytes) (src/FlashArbitrageExecutor.sol#61-92)\n\t- FlashArbitrageExecutor.idle() (src/FlashArbitrageExecutor.sol#32)\n"
+    },
+    {
+      "check": "unused-return",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "description": "V3Adapter.swap(uint8,address,address,address,uint24,uint256,uint256,uint256) (src/adapters/V3Adapter.sol#12-15) ignores return value by IV3Router(router).exactInputSingle(IV3Router.Params(input,output,fee,address(this),deadline,amount,minimum,0)) (src/adapters/V3Adapter.sol#13)\n"
+    },
+    {
+      "check": "unused-return",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "description": "V2Adapter.swap(address,address,address,uint256,uint256,uint256) (src/adapters/V2Adapter.sol#7-10) ignores return value by IV2Router(router).swapExactTokensForTokens(amount,minimum,path,address(this),deadline) (src/adapters/V2Adapter.sol#9)\n"
+    },
+    {
+      "check": "unused-return",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "description": "V3Adapter.swap(uint8,address,address,address,uint24,uint256,uint256,uint256) (src/adapters/V3Adapter.sol#12-15) ignores return value by IV3Router02(router).exactInputSingle(IV3Router02.Params(input,output,fee,address(this),amount,minimum,0)) (src/adapters/V3Adapter.sol#14)\n"
+    },
+    {
+      "check": "calls-loop",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "FlashArbitrageExecutor.executeOperation(address,uint256,uint256,address,bytes) (src/FlashArbitrageExecutor.sol#61-92) has external calls inside a loop: beforeIn = IERC20(h.tokenIn).balanceOf(address(this)) (src/FlashArbitrageExecutor.sol#70)\n"
+    },
+    {
+      "check": "calls-loop",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "FlashArbitrageExecutor.executeOperation(address,uint256,uint256,address,bytes) (src/FlashArbitrageExecutor.sol#61-92) has external calls inside a loop: IERC20(h.tokenIn).balanceOf(address(this)) != beforeIn - current (src/FlashArbitrageExecutor.sol#75)\n"
+    },
+    {
+      "check": "calls-loop",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "FlashArbitrageExecutor.executeOperation(address,uint256,uint256,address,bytes) (src/FlashArbitrageExecutor.sol#61-92) has external calls inside a loop: beforeOut = IERC20(h.tokenOut).balanceOf(address(this)) (src/FlashArbitrageExecutor.sol#69)\n"
+    },
+    {
+      "check": "calls-loop",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "FlashArbitrageExecutor.executeOperation(address,uint256,uint256,address,bytes) (src/FlashArbitrageExecutor.sol#61-92) has external calls inside a loop: current = IERC20(h.tokenOut).balanceOf(address(this)) - beforeOut (src/FlashArbitrageExecutor.sol#76)\n"
+    },
+    {
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "Reentrancy in FlashArbitrageExecutor.execute(bytes32,address,uint256,FlashArbitrageExecutor.Hop[],uint256,uint256) (src/FlashArbitrageExecutor.sol#44-60):\n\tExternal calls:\n\t- IAavePool(POOL).flashLoanSimple(address(this),asset,amount,params,0) (src/FlashArbitrageExecutor.sol#57)\n\tState variables written after the call(s):\n\t- context = bytes32(0) (src/FlashArbitrageExecutor.sol#59)\n"
+    },
+    {
+      "check": "reentrancy-events",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "Reentrancy in FlashArbitrageExecutor.executeOperation(address,uint256,uint256,address,bytes) (src/FlashArbitrageExecutor.sol#61-92):\n\tExternal calls:\n\t- V2Adapter.swap(h.router,h.tokenIn,h.tokenOut,current,h.minOut,deadline) (src/FlashArbitrageExecutor.sol#72)\n\t- V3Adapter.swap(h.kind,h.router,h.tokenIn,h.tokenOut,h.fee,current,h.minOut,deadline) (src/FlashArbitrageExecutor.sol#73)\n\tEvent emitted after the call(s):\n\t- Executed(intentId,asset,recipient,amount,premium,customerProfit,keccak256(bytes)(abi.encode(route))) (src/FlashArbitrageExecutor.sol#90)\n\t- MerchantPaid(intentId,asset,merchant,merchantAmount) (src/FlashArbitrageExecutor.sol#88)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "FlashArbitrageExecutor.execute(bytes32,address,uint256,FlashArbitrageExecutor.Hop[],uint256,uint256) (src/FlashArbitrageExecutor.sol#44-60) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- paused || amount == 0 || intentId == bytes32(0) || usedIntents[intentId] || ! loanAssets[asset] || deadline < block.timestamp || deadline > block.timestamp + 120 || route.length < 2 || route.length > 3 (src/FlashArbitrageExecutor.sol#46)\n"
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "description": "FlashArbitrageExecutor.executeOperation(address,uint256,uint256,address,bytes) (src/FlashArbitrageExecutor.sol#61-92) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- asset != expectedAsset || amount != expectedAmount || block.timestamp > deadline || IERC20(asset).balanceOf(address(this)) != start + amount (src/FlashArbitrageExecutor.sol#65)\n"
+    },
+    {
+      "check": "naming-convention",
+      "impact": "Informational",
+      "confidence": "High",
+      "description": "Variable FlashArbitrageExecutor.POOL (src/FlashArbitrageExecutor.sol#15) is not in mixedCase\n"
+    }
+  ]
+}

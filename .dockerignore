@@ -1,0 +1,9 @@
+.git
+.venv
+node_modules
+data
+.env*
+*.key
+.superpowers
+contracts/out
+contracts/cache

@@ -18,7 +18,9 @@ def validate_head(block, max_age, now=None):
 
 
 class RpcClient:
-    def __init__(self, url, chain_id, rps=5, daily_calls=10000, transport=None):
+    def __init__(self, url, chain_id, rps=5, daily_calls=10000, transport=None, store=None):
+        self.store = store
+        self.owns_store = False
         self._url = url
         self.chain_id = chain_id
         self.rps = rps
@@ -34,6 +36,8 @@ class RpcClient:
 
     async def close(self):
         await self.client.aclose()
+        if self.owns_store:
+            self.store.close()
 
     async def call(self, method, params):
         for attempt in range(3):
@@ -46,6 +50,13 @@ class RpcClient:
                     raise RpcError("RPC daily request limit reached")
                 await asyncio.sleep(max(0, self._next - time.monotonic()))
                 self._next = time.monotonic() + 1 / self.rps
+                if self.store is not None:
+                    with self.store.atomic():
+                        key = f"rpc-quota:{self.chain_id}:{day}"
+                        used = self.store.get_state(key, 0)
+                        if used >= self.daily_calls:
+                            raise RpcError("RPC daily request limit reached")
+                        self.store.set_state(key, used + 1)
                 self.calls += 1
             try:
                 response = await self.client.post(
@@ -89,10 +100,18 @@ class RpcClient:
         return head
 
 
-def from_config(chain, app):
+def from_config(chain, app, store=None):
     url = os.environ.get(chain.rpc_env)
     if not url:
         raise RpcError(f"Missing {chain.rpc_env}")
     if not url.startswith(("http://127.0.0.1:", "http://localhost:", "https://")):
         raise RpcError("RPC must use HTTPS or local HTTP")
-    return RpcClient(url, chain.chain_id, app.rpc_rps, app.rpc_daily_calls)
+    owns_store = store is None
+    if owns_store:
+        from pathlib import Path
+        from ..storage.db import Store
+
+        store = Store(Path(app.data_dir) / "arbitrary.db")
+    client = RpcClient(url, chain.chain_id, app.rpc_rps, app.rpc_daily_calls, store=store)
+    client.owns_store = owns_store
+    return client

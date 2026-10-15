@@ -1,16 +1,20 @@
-# Integration evidence
+# Integration evidence — 15 October 2026
 
-Six networks are configured from the pinned official Aave address book and Uniswap deployment documentation. Revisions and per-file SHA-256 digests are in `config/registry.lock.json`; addresses, tokens, feeds, routers, quoters and factories are in `config/chains/`.
+Registry provenance and per-file digests are in `config/registry.lock.json`. Baseline exchange is Uniswap V3 SwapRouter02/QuoterV2. Additional V2/original-V3 adapters exist but no unverified extra exchange is enabled by default.
 
-Baseline venue is Uniswap V3 SwapRouter02 + QuoterV2. Distinct fee-tier pools form two/three-hop cycles; their existence and liquidity must be discovered on-chain. The V2 and original V3 adapters are implemented for explicitly verified additional venue configurations, but no unverified second exchange is enabled by default.
+The real-protocol Solidity fork tests below use the merchant-aware executor (5% test merchant share), real Aave loan/reserve and real Uniswap factory/router. Synthetic setup creates a new test token, transfers reserve tokens through local impersonation and seeds deliberately skewed pools. Each run checks profitable execution/repayment/payout and atomic rejection of an unprofitable execution. No mainnet transaction is sent.
 
-| Network | Chain ID | Registry source | RPC/code/ABI evidence | Fork execution |
-|---|---:|---|---|---|
-| Ethereum | 1 | pinned | pending doctor | not run |
-| Arbitrum One | 42161 | pinned | pending doctor | not run |
-| Base | 8453 | pinned | pending doctor | not run |
-| OP Mainnet | 10 | pinned | pending doctor | not run |
-| Polygon PoS | 137 | pinned | pending doctor | not run |
-| Avalanche C-Chain | 43114 | pinned | pending doctor | not run |
+| Network | ID | Pinned block | Protocol-only result | Evidence |
+|---|---:|---:|---|---|
+| Ethereum | 1 | 26199128 | PROTOCOLS_PASS | [report](evidence/fork-1.json) |
+| Arbitrum | 42161 | 515115266 | PROTOCOLS_PASS | [report](evidence/fork-42161.json) |
+| Base | 8453 | 52646319 | PROTOCOLS_PASS | [report](evidence/fork-8453.json) |
+| OP Mainnet | 10 | 158241628 | PROTOCOLS_PASS | [report](evidence/fork-10.json) |
+| Polygon | 137 | 95584510 | PROTOCOLS_PASS | [report](evidence/fork-137.json) |
+| Avalanche | 43114 | 97632897 | PROTOCOLS_PASS | [report](evidence/fork-43114.json) |
 
-Registry presence is not live support certification. `flasharb doctor` performs RPC checks; fork evidence must pass before marking a chain ready. Oracle adapter compatibility and freshness are checked at runtime; an adapter lacking timestamped round data blocks live valuation rather than assuming a dollar peg.
+These passes are not full Python-worker certification and do not authorize live trading. Python signed-EVM tests use mocked protocol contracts; combining these separate test results is not equivalent to testing the entire worker on each fork. Native fee certification is also separate; Base/OP funded operations remain blocked.
+
+Read-only probes from 10 October are retained with dates and blocks. They verified registered code, flash-loan terms, pool discovery, quote interfaces and direct Chainlink feeds. Probe price freshness used 86,400 seconds to establish interface compatibility, **not** the default live policy (300 seconds). Strict runtime freshness may reject a valid but older Chainlink round. Review heartbeat/freshness policy before deployment; no USDC dollar peg is assumed.
+
+To repeat: provide the six RPC environment variables locally and run `uv run python scripts/check-networks.py` and `uv run python scripts/run-forks.py`. Missing RPC inputs are BLOCKED, never success. The fork runner uses a modern fork EVM (Prague) for current protocol bytecode; deployable executor artifacts target Paris for compatibility.

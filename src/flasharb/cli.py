@@ -192,7 +192,7 @@ def run(
 
 
 @app.command()
-def serve(config: Path = DEFAULT, port: int = 8000):
+def serve(config: Path = DEFAULT, port: int = 8000, dashboard_only: bool = False):
     """Start authenticated loopback dashboard and observe-mode worker."""
     import uvicorn
     from .web.app import create_app
@@ -202,7 +202,9 @@ def serve(config: Path = DEFAULT, port: int = 8000):
     if not p.exists():
         raise typer.BadParameter("Run flasharb init first")
     uvicorn.run(
-        create_app(c, s, json.loads(p.read_text())["password_hash"]),
+        create_app(
+            c, s, json.loads(p.read_text())["password_hash"], launch_worker=not dashboard_only
+        ),
         host="127.0.0.1",
         port=port,
         log_level="warning",
@@ -231,11 +233,13 @@ def deployment_plan(
     owner: str,
     operator: str,
     recipient: str,
+    merchant: str = "0x0000000000000000000000000000000000000000",
+    merchant_fee_bps: int = 0,
     out: Path = Path("data/deploy-plan.json"),
     config: Path = DEFAULT,
 ):
     c = load_config(config)
-    p = make_plan(selected(c, chain), owner, operator, recipient)
+    p = make_plan(selected(c, chain), owner, operator, recipient, merchant, merchant_fee_bps)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(p, indent=2))
     output(p)
@@ -318,7 +322,9 @@ def apply_plan(plan: Path, keystore: Path, max_cost_native: str, config: Path = 
             raise typer.BadParameter("Configuration plan mismatch")
         txs = expected
     else:
-        expected = make_plan(ch, p["owner"], p["operator"], p["recipient"])
+        expected = make_plan(
+            ch, p["owner"], p["operator"], p["recipient"], p["merchant"], p["merchant_fee_bps"]
+        )
         if p != expected:
             raise typer.BadParameter("Deployment plan differs from compiled artifact/config")
         txs = [p["transaction"]]
@@ -334,81 +340,115 @@ def apply_plan(plan: Path, keystore: Path, max_cost_native: str, config: Path = 
         raise typer.Abort()
 
     async def work():
-        rpc = from_config(ch, c)
-        remaining = cap
-        results = []
+        from .deployment_runner import apply_transactions
+
+        rpc = from_config(ch, c, s)
         try:
-            await rpc.check_chain()
-            for tx in txs:
-                fee = await estimate_fees(tx, ch, rpc)
-                if fee.max_native_cost > remaining:
-                    raise ValueError("deployment fee cap exceeded")
-                nonce = int(
-                    await rpc.call("eth_getTransactionCount", [signer.address, "pending"]), 16
-                )
-                latest = int(
-                    await rpc.call("eth_getTransactionCount", [signer.address, "latest"]), 16
-                )
-                if nonce != latest:
-                    raise ValueError("unresolved owner nonce; reconcile before deployment")
-                payload = dict(tx)
-                payload.pop("from")
-                payload["value"] = 0
-                payload.update(
-                    {
-                        "chainId": ch.chain_id,
-                        "nonce": nonce,
-                        "type": 2,
-                        "gas": fee.gas_limit,
-                        "maxFeePerGas": fee.max_fee_per_gas,
-                        "maxPriorityFeePerGas": fee.priority_fee,
-                    }
-                )
-                signed = signer.sign_transaction(payload)
-                h = "0x" + signed.hash.hex()
-                journal = Path(c.data_dir) / "deployments"
-                journal.mkdir(parents=True, exist_ok=True)
-                record = {
-                    "chain_id": ch.chain_id,
-                    "hash": h,
-                    "nonce": nonce,
-                    "status": "signed",
-                    "payload": payload,
-                    "raw_tx": "0x" + signed.raw_transaction.hex(),
-                }
-                f = journal / (h + ".json")
-                f.write_text(json.dumps(record, indent=2))
-                f.chmod(0o600)
-                await rpc.call("eth_sendRawTransaction", [record["raw_tx"]])
-                record["status"] = "submitted"
-                f.write_text(json.dumps(record, indent=2))
-                receipt = None
-                for _ in range(60):
-                    receipt = await rpc.call("eth_getTransactionReceipt", [h])
-                    if receipt:
-                        break
-                    await asyncio.sleep(2)
-                if not receipt:
-                    raise ValueError("deployment pending; journal retained; do not repeat blindly")
-                record["receipt"] = receipt
-                record["status"] = "mined"
-                f.write_text(json.dumps(record, indent=2))
-                results.append(
-                    {
-                        "hash": h,
-                        "contract": receipt.get("contractAddress"),
-                        "status": receipt["status"],
-                    }
-                )
-                remaining -= fee.max_native_cost
-                if int(receipt["status"], 16) != 1:
-                    raise ValueError("deployment/configuration reverted")
-            return results
+            return await apply_transactions(p, txs, ch, rpc, signer, s, cap)
         finally:
             await rpc.close()
 
+    from .runtime import WorkerLock
+
     try:
-        output(asyncio.run(work()))
+        with WorkerLock(s.path.resolve().with_suffix(".worker.lock")):
+            output(asyncio.run(work()))
+    finally:
+        s.close()
+
+
+@app.command("recover")
+def recover_transaction(
+    intent_id: str, config: Path = DEFAULT, cancel: bool = False, keystore: Path | None = None
+):
+    """Reconcile then rebroadcast exact signed bytes, or explicitly cancel a stuck nonce."""
+    from .runtime import WorkerLock
+    from .execution.transactions import TransactionManager
+    from .storage.reconcile import reconcile_chain
+    from .models import Policy
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    import os
+
+    c, s = context(config)
+
+    async def work():
+        row = s.execution(intent_id)
+        if row is None:
+            raise typer.BadParameter("Unknown intent")
+        ch = selected(c, row["chain_id"])
+        if ch.fee_model == "op":
+            raise typer.BadParameter("OP-stack recovery awaits fee ceiling certification")
+        rpc = from_config(ch, c, s)
+        private = None
+        try:
+            head = await rpc.head(ch.max_head_age)
+            await reconcile_chain(s, ch, rpc, int(head["number"], 16), c.timezone)
+            row = s.execution(intent_id)
+            if row["status"] in ("confirmed", "failed", "cancelled", "provisional"):
+                return {"status": row["status"], "broadcast": False}
+            if ch.submission == "private":
+                from .market.rpc import RpcClient
+
+                url = os.environ.get(ch.private_rpc_env or "")
+                if not url:
+                    raise ValueError("Private endpoint missing; no fallback")
+                private = RpcClient(url, ch.chain_id, c.rpc_rps, c.rpc_daily_calls, store=s)
+                await private.check_chain()
+            signer = None
+            if cancel:
+                if not keystore:
+                    raise typer.BadParameter("Cancellation requires --keystore")
+                signer = Signer.unlock(keystore, getpass.getpass("Operator keystore password: "))
+            manager = TransactionManager(s, rpc, signer, ch.chain_id, private)
+            if not cancel:
+                return (await manager.recover(intent_id)).model_dump()
+            policy = Policy(**s.get_state("policy", c.policy.model_dump(mode="json")))
+            old = json.loads(row["payload"])
+            tx = {"from": signer.address, "to": signer.address, "value": "0x0", "data": "0x"}
+            fees = await estimate_fees(tx, ch, rpc)
+            maximum = max(fees.max_fee_per_gas, old["maxFeePerGas"] * 110 // 100 + 1)
+            priority = max(fees.priority_fee, old["maxPriorityFeePerGas"] * 110 // 100 + 1)
+            maximum = max(maximum, priority)
+            meta = json.loads(row["metadata"])
+            cost = Decimal(fees.gas_limit * maximum) * Decimal(meta["native_usd"]) / 10**18
+            if cost > policy.max_tx_usd:
+                raise ValueError("Cancellation exceeds transaction budget")
+            payload = {
+                "to": signer.address,
+                "value": 0,
+                "data": "0x",
+                "chainId": ch.chain_id,
+                "nonce": row["nonce"],
+                "type": 2,
+                "gas": fees.gas_limit,
+                "maxFeePerGas": maximum,
+                "maxPriorityFeePerGas": priority,
+            }
+            day = datetime.now(ZoneInfo(c.timezone)).date().isoformat()
+            return (
+                await manager.replace(
+                    intent_id,
+                    payload,
+                    cost,
+                    policy.daily_usd,
+                    policy.global_daily_usd,
+                    day,
+                    kind="cancel",
+                )
+            ).model_dump()
+        finally:
+            await rpc.close()
+            if private:
+                await private.close()
+
+    try:
+        with WorkerLock(s.path.resolve().with_suffix(".worker.lock")):
+            if not typer.confirm(
+                "Send a recovery transaction? Cancellation spends gas; stop the worker first."
+            ):
+                raise typer.Abort()
+            output(asyncio.run(work()))
     finally:
         s.close()
 

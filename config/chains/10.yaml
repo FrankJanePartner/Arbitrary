@@ -10,7 +10,7 @@ tokens:
 - address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85'
   symbol: USDC
   decimals: 6
-  oracle: '0x6379A975Ef93EC2bE87f56A02CCF8535dFAde201'
+  oracle: '0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3'
   loan: true
 - address: '0x4200000000000000000000000000000000000006'
   symbol: WETH
@@ -30,3 +30,4 @@ venues:
   - 10000
 enabled: false
 fee_model: op
+sequencer_feed: '0x371EAD81c9102C9BF4874A9075FFFf170F2Ee389'

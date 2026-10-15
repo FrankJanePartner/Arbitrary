@@ -3,17 +3,29 @@ from web3 import Web3
 from .execution.abi import artifact, executor
 
 
-def deploy_plan(chain, owner, operator, recipient):
+def deploy_plan(
+    chain,
+    owner,
+    operator,
+    recipient,
+    merchant="0x0000000000000000000000000000000000000000",
+    merchant_fee_bps=0,
+):
     values = [Web3.to_checksum_address(x) for x in [chain.pool, owner, operator, recipient]]
     if any(int(x, 16) == 0 for x in values):
         raise ValueError("zero address")
+    merchant = Web3.to_checksum_address(merchant)
+    if not 0 <= merchant_fee_bps <= 1000 or (merchant_fee_bps and int(merchant, 16) == 0):
+        raise ValueError("invalid merchant address or fee; maximum 1000 bps")
     art = artifact()
-    data = executor().constructor(*values).data_in_transaction
+    data = executor().constructor(*values, merchant, merchant_fee_bps).data_in_transaction
     return {
         "chain_id": chain.chain_id,
         "owner": values[1],
         "operator": values[2],
         "recipient": values[3],
+        "merchant": merchant,
+        "merchant_fee_bps": merchant_fee_bps,
         "pool": values[0],
         "compiler": art["compiler"],
         "registry_digest": chain.registry_digest,
@@ -84,10 +96,16 @@ async def verify_deployment(chain, rpc, block="latest"):
         ("owner", chain.owner),
         ("operator", chain.operator),
         ("recipient", chain.recipient),
+        ("merchant", chain.merchant),
     ]:
         (value,) = await rpc.contract_call(chain.executor, name + "()", [], [], ["address"], block)
         if value.lower() != expected.lower():
             raise ValueError(name + " mismatch")
+    (fee_bps,) = await rpc.contract_call(
+        chain.executor, "merchantFeeBps()", [], [], ["uint16"], block
+    )
+    if fee_bps != chain.merchant_fee_bps:
+        raise ValueError("merchant fee mismatch")
     (paused,) = await rpc.contract_call(chain.executor, "paused()", [], [], ["bool"], block)
     if paused:
         raise ValueError("contract is paused")

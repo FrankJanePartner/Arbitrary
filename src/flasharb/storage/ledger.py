@@ -11,7 +11,14 @@ def report_rows(store):
     ):
         meta = json.loads(r.pop("metadata") or "{}")
         receipt = json.loads(r.pop("receipt") or "{}")
-        r.update({"asset": meta.get("asset"), "recipient": meta.get("recipient")})
+        r.update(
+            {
+                "asset": meta.get("asset"),
+                "recipient": meta.get("recipient"),
+                "merchant": meta.get("merchant"),
+                "merchant_fee_bps": meta.get("merchant_fee_bps", 0),
+            }
+        )
         r.update(receipt.get("accounting", {}))
         result.append(r)
     return result
@@ -25,6 +32,9 @@ def summary(store):
         "finalized": len(final),
         "pending": len(store.pending()),
         "gas_usd": str(sum((Decimal(r["gas_usd"]) for r in final), Decimal(0))),
+        "merchant_fee_usd": str(
+            sum((Decimal(r.get("merchant_fee_usd", "0")) for r in final), Decimal(0))
+        ),
         "net_usd": str(sum((Decimal(r["net_usd"]) for r in final), Decimal(0))),
         "reserved_usd": str(store.reserved()),
         "valuation_basis": "submission price snapshots; infrastructure costs excluded",

@@ -32,6 +32,10 @@ uv run flasharb serve
 
 Open http://127.0.0.1:8000 on the same computer. All networks start disabled. See [local operations and current limits](docs/LOCAL_OPERATIONS.md) before enabling a network.
 
+## Commercial wallets
+
+Customer profits, operator gas funds and merchant revenue have separate addresses. Merchant fees are explicit, default to zero and are immutable per deployed executor. See [wallet and fee configuration](docs/COMMERCIAL_WALLETS.md).
+
 ## Project guides
 
 - [MVP specification and implementation plan](docs/MVP_IMPLEMENTATION_PLAN.md)

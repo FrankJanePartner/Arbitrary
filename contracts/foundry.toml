@@ -13,3 +13,7 @@ runs = 256
 [invariant]
 runs = 128
 depth = 32
+
+[profile.fork]
+test = "fork"
+evm_version = "prague"

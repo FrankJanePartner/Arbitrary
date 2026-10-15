@@ -19,10 +19,10 @@ This is the master progress record. Implementation has started; see [build statu
 - [ ] Pin Python dependencies, Solidity compiler, OpenZeppelin and Foundry revisions.
 - [ ] Define shared interfaces and exact integer/Decimal conventions.
 - [ ] Create private-by-default, observe-mode configuration.
-- [ ] Confirm six chain IDs and correct RPC responses.
+- [x] Confirm six chain IDs and correct RPC responses.
 - [ ] Pin official Aave provider/Pool, exchange/quote/factory addresses and token metadata per chain.
 - [ ] Verify router ABI variants, deployed code and flash-loan asset eligibility/liquidity.
-- [ ] Publish `docs/INTEGRATION_MATRIX.md` and registry provenance.
+- [x] Publish `docs/INTEGRATION_MATRIX.md` and registry provenance.
 - [ ] Config, secret-redaction, wrong-chain and stale-registry tests pass.
 
 ## C. Atomic execution contracts — Task 2
@@ -33,7 +33,7 @@ This is the master progress record. Implementation has started; see [build statu
 - [x] Existing contract balance cannot subsidize losing execution.
 - [x] Principal plus premium remains reserved; only incremental surplus is paid.
 - [ ] Allowlists, min outputs, route continuity, deadline and pause enforced.
-- [ ] Reentrancy/replay/payout-failure/unauthorized-withdrawal tests pass.
+- [x] Reentrancy/replay/payout-failure/unauthorized-withdrawal tests pass.
 - [ ] Fuzz/invariant tests and allowance lifecycle checks pass.
 
 ## D. Market data and opportunity engine — Tasks 3–4
@@ -56,8 +56,8 @@ This is the master progress record. Implementation has started; see [build statu
 - [ ] Daily/per-transaction limits reserve pending maximum gas liability.
 - [ ] Failed transactions and cancellation gas remain in spending totals.
 - [ ] Midnight, retries and replacement transactions cannot reset/bypass limits.
-- [ ] Encrypted keystore unlock implemented; no key in `.env`, Git, UI or logs.
-- [ ] Intent, signed hash, nonce and budget persisted before broadcasting.
+- [x] Encrypted keystore unlock implemented; no key in `.env`, Git, UI or logs.
+- [x] Intent, signed hash, nonce and budget persisted before broadcasting.
 - [ ] Timeout/restart recovery does not create duplicate transactions.
 - [ ] Public/private submission capability and fallback policy explicit.
 - [ ] Low balance and fee ceiling cause pause/skip; relevant tests pass.
@@ -80,13 +80,13 @@ This is the master progress record. Implementation has started; see [build statu
 
 - [ ] Clean local installation works with documented commands.
 - [ ] Optional Docker packaging builds and runs.
-- [ ] Deployment plan/cost estimator produces unsigned, chain-specific output.
+- [x] Deployment plan/cost estimator produces unsigned, chain-specific output.
 - [ ] Deployment verifier checks chain, bytecode and owner/operator/recipient.
 - [ ] Unit, integration, fuzz/invariant, lint/type and static-analysis checks pass.
 - [ ] Critical/high findings resolved; remaining issues documented.
 - [ ] Offline CI does not claim fork checks passed when RPC secrets are missing.
 - [ ] Complete local UI → quote → simulation → executor → ledger → export flow demonstrated.
-- [ ] Audit/review status stated accurately; automated testing is not called an independent audit.
+- [x] Audit/review status stated accurately; automated testing is not called an independent audit.
 
 ### Six-network verification tracker
 
@@ -165,3 +165,7 @@ Wrong chain or bytecode, stale/missing fee conversion, unverified router/token, 
 ## Evidence for checked implementation items
 
 9 October checkpoint: `uv run pytest -q` — 36 passed; `npm run contracts:test` — 9 passed, including 256 fuzz runs. `tests/test_worker.py` covers non-live restart, pause preservation and chain failure isolation; `tests/test_web.py` covers authentication/CSRF and exports; `contracts/test/Executor.t.sol` covers treasury preservation and incremental payouts. These are scoped local tests; the broader unchecked integration/recovery requirements still apply.
+
+## 15 October 2026 implementation update
+
+Commercial split, persistent quotas, process exclusion, resumable deployment, nonce guards, explicit recovery/cancellation and bounded receipt audits are implemented. Local suites: 53 Python and 15 Solidity tests (256 fuzz runs). See BUILD_STATUS.md for unresolved production gates and SECURITY.md for review/static-analysis dispositions. The six-chain tracker above is the full Python+protocol acceptance gate; separate protocol-only reports must not be used to check it off. Merchant terms and the three wallet roles are documented in COMMERCIAL_WALLETS.md.

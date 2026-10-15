@@ -1,4 +1,5 @@
 import json
+import time
 from ..models import Submission
 
 
@@ -10,13 +11,27 @@ class TransactionManager:
         self.chain_id = chain_id
         self.submission_rpc = submission_rpc or rpc
 
-    async def submit_transaction(self, id, tx, cost, chain_cap, global_cap, day, metadata):
+    async def submit_transaction(
+        self, id, tx, cost, chain_cap, global_cap, day, metadata, can_submit=None
+    ):
         if (
             int(await self.rpc.call("eth_chainId", []), 16) != self.chain_id
             or tx["chainId"] != self.chain_id
         ):
             raise ValueError("wrong chain")
+        if can_submit is not None and not can_submit():
+            raise ValueError("submission stopped or stale")
+        pending_nonce = int(
+            await self.rpc.call("eth_getTransactionCount", [self.signer.address, "pending"]), 16
+        )
+        latest_nonce = int(
+            await self.rpc.call("eth_getTransactionCount", [self.signer.address, "latest"]), 16
+        )
+        if pending_nonce != latest_nonce or tx["nonce"] != latest_nonce:
+            raise ValueError("unresolved or changed operator nonce")
         with self.store.atomic():
+            if can_submit is not None and not can_submit():
+                raise ValueError("submission stopped or stale")
             if self.store.pending(self.chain_id):
                 raise ValueError("unresolved transaction blocks new nonce")
             if self.store.execution(id):
@@ -44,6 +59,15 @@ class TransactionManager:
             )
         return await self.rebroadcast(id)
 
+    async def recover(self, id):
+        row = self.store.execution(id)
+        if not row or row["chain_id"] != self.chain_id:
+            raise ValueError("unknown intent or wrong chain")
+        deadline = json.loads(row["metadata"]).get("intent", {}).get("deadline", 0)
+        if deadline <= int(time.time()) + 3:
+            raise ValueError("expired or unverified intent; reconcile or explicitly cancel")
+        return await self.rebroadcast(id)
+
     async def rebroadcast(self, id):
         row = self.store.execution(id)
         if not row or row["status"] in ("confirmed", "failed", "cancelled", "provisional"):
@@ -63,6 +87,11 @@ class TransactionManager:
         row = self.store.execution(id)
         if not row or row["status"] in ("provisional", "confirmed", "failed", "cancelled"):
             raise ValueError("not replaceable")
+        if (
+            kind not in ("trade", "cancel")
+            or row["operator"].lower() != self.signer.address.lower()
+        ):
+            raise ValueError("replacement kind or signer mismatch")
         old = json.loads(row["payload"])
         if tx["chainId"] != self.chain_id or tx["nonce"] != row["nonce"]:
             raise ValueError("replacement nonce/chain mismatch")
@@ -76,6 +105,8 @@ class TransactionManager:
             raise ValueError("invalid cancellation")
         if tx["maxFeePerGas"] < old["maxFeePerGas"] * 110 // 100 + 1:
             raise ValueError("replacement fee not increased")
+        if tx["maxPriorityFeePerGas"] < old["maxPriorityFeePerGas"] * 110 // 100 + 1:
+            raise ValueError("replacement priority fee not increased")
         with self.store.atomic():
             self.store.reserve(id, self.chain_id, new_cost, chain_cap, global_cap, day)
             signed = self.signer.sign_transaction(tx)

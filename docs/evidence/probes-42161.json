@@ -1,0 +1,82 @@
+{
+  "chain_id": 42161,
+  "registry_digest": "c4edab3ede434839afe16f6dab55a62e95ea44c94e22389bf9a44b37df6ce28a",
+  "checks": {
+    "loan_terms": {
+      "status": "PASS",
+      "value": [
+        5,
+        19001473912117
+      ]
+    },
+    "prices": {
+      "status": "PASS",
+      "value": {
+        "native_usd": "2507.14462668",
+        "loan_usd": "0.99984974",
+        "updated_at": 1791653934,
+        "loan_decimals": 6
+      }
+    },
+    "pools": {
+      "status": "PASS",
+      "count": 4
+    },
+    "quote": {
+      "status": "PASS",
+      "value": {
+        "route": {
+          "chain_id": 42161,
+          "hops": [
+            {
+              "kind": 2,
+              "router": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+              "pool": "0x6f38e884725a116C9C7fBF208e79FE8828a2595F",
+              "token_in": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+              "token_out": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+              "fee": 100,
+              "min_out": 0
+            },
+            {
+              "kind": 2,
+              "router": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+              "pool": "0xC6962004f452bE9203591991D15f6b388e09E8D0",
+              "token_in": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+              "token_out": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+              "fee": 500,
+              "min_out": 0
+            }
+          ]
+        },
+        "block_number": 513580620,
+        "amount_in": 100000000,
+        "amount_out": 99927925,
+        "hop_outputs": [
+          39878772436656670,
+          99927925
+        ]
+      }
+    }
+  },
+  "execution_certified": false,
+  "checked_at": 1791654025,
+  "registry": {
+    "chain_id": 42161,
+    "block_number": 513580620,
+    "blockers": [],
+    "checks": {
+      "provider": "1a95f317ee56e0b9aedc4f4b7abd9e546dc45c26d1d77e95bcf62b789d9a5486",
+      "pool": "f168c2e9e4d04292c7d5d526a9a917175a44369ab63a2f9997537acf0ffaaf2e",
+      "oracle": "e9b8d7ac606312698d9b24a55f8d479d196482542f5553dc78887cfa305df8aa",
+      "token:USDC": "ad30d819dbc47814b7e6cb837fd7cc57fcb591479a38596ee93de4fc52e8c435",
+      "feed:USDC": "bd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "token:WETH": "2d240bb4510ed1acfeaba905eb4bcc4524d63c8ae66e48fcccac55ea714db7a7",
+      "feed:WETH": "bd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "Uniswap V3:factory": "4d7b8525cd5d14343fa67a732fba5b24cddba11620ca88392f4ec6c52f91fd69",
+      "Uniswap V3:router": "209f9820ed7257d51c2f96ee837e8ec057b44774899f4be16fc45bd30cbb16f6",
+      "Uniswap V3:quoter": "d8162b13ba57ce21a146063b10658bda0a3fd15c99f768c86283fce6640858a5"
+    }
+  },
+  "block": 513580620,
+  "status": "PROBES_PASS"
+}

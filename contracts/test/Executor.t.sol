@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 import {FlashArbitrageExecutor} from "../src/FlashArbitrageExecutor.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 interface Vm {function prank(address) external; function expectRevert() external; function warp(uint256) external;}
-contract Token is ERC20 {constructor() ERC20("Test", "T") {} function mint(address a,uint256 n) external {_mint(a,n);}}
+contract Token is ERC20 {constructor() ERC20("Test", "T") {} function mint(address a,uint256 n) external {_mint(a,n);} address public blocked; function blockRecipient(address who) external {blocked=who;} function _update(address from,address to,uint256 value) internal override {require(to!=blocked || to==address(0), "blocked payout");super._update(from,to,value);}}
 contract PoolMock {
  uint256 public premium=10;
  function flashLoanSimple(address receiver,address asset,uint256 amount,bytes calldata params,uint16) external {
@@ -13,9 +13,10 @@ contract PoolMock {
  }
 }
 contract RouterMock {
- uint256 public bonus;
+ uint256 public bonus; address public target; bytes public attack; bool public attempted; function setAttack(address t,bytes calldata d) external {target=t;attack=d;}
  constructor(uint256 b){bonus=b;}
  function swapExactTokensForTokens(uint256 n,uint256 min,address[] calldata path,address to,uint256) external returns(uint256[] memory result){
+  if(target!=address(0)){attempted=true;(bool ok,)=target.call(attack);require(!ok,"reentry succeeded");}
   Token(path[0]).transferFrom(msg.sender,address(this),n);
   require(n+bonus>=min); Token(path[1]).transfer(to,n+bonus);
   result=new uint256[](2);result[0]=n;result[1]=n+bonus;
@@ -27,7 +28,7 @@ contract ExecutorTest {
  address recipient=address(0xBEEF);
  function setUp() public {
   a=new Token();b=new Token();pool=new PoolMock();r1=new RouterMock(0);r2=new RouterMock(100);
-  e=new FlashArbitrageExecutor(address(pool),address(this),address(this),recipient);
+  e=new FlashArbitrageExecutor(address(pool),address(this),address(this),recipient,address(0),0);
   e.setToken(address(a),true,true);e.setToken(address(b),true,false);
   e.setRouter(address(r1),0,true);e.setRouter(address(r2),0,true);
   a.mint(address(pool),1e9);b.mint(address(r1),1e9);a.mint(address(r2),1e9);
@@ -42,9 +43,43 @@ contract ExecutorTest {
  function testExistingBalanceCannotSubsidizeLoss() public {a.mint(address(e),10000);vm.expectRevert();go(bytes32(uint256(1)),91);}
  function testRejectsForgedCallback() public {vm.expectRevert();e.executeOperation(address(a),1000,10,address(e),"");}
  function testRejectsWrongInitiator() public {vm.prank(address(pool));vm.expectRevert();e.executeOperation(address(a),1000,10,address(1),"");}
- function testRejectsReplayAndReentrancy() public {go(bytes32(uint256(1)),50);vm.expectRevert();go(bytes32(uint256(1)),50);}
+ function testRejectsReplay() public {go(bytes32(uint256(1)),50);vm.expectRevert();go(bytes32(uint256(1)),50);}
  function testRejectsUnknownRouter() public {e.setRouter(address(r1),0,false);vm.expectRevert();go(bytes32(uint256(1)),50);}
  function testOperatorCannotChangeRecipient() public {e.setOperator(address(123));vm.prank(address(123));vm.expectRevert();e.setRecipient(address(124));}
  function testPauseAndDeadline() public {e.setPaused(true);vm.expectRevert();go(bytes32(uint256(1)),50);e.setPaused(false);vm.expectRevert();e.execute(bytes32(uint256(2)),address(a),1000,route(),50,block.timestamp-1);}
  function testFuzzPreservesTreasury(uint96 start) public {a.mint(address(e),start);go(bytes32(uint256(1)),50);require(a.balanceOf(address(e))==start);require(a.balanceOf(recipient)==90);}
+
+ function testPayoutFailureRevertsLoanAndSwaps() public {
+  a.blockRecipient(recipient);vm.expectRevert();go(bytes32(uint256(2)),50);
+  require(a.balanceOf(address(pool))==1e9);require(a.balanceOf(recipient)==0);
+  require(!e.usedIntents(bytes32(uint256(2))));require(a.allowance(address(e),address(pool))==0);
+ }
+ function testRouterCannotReenterExecution() public {
+  r1.setAttack(address(e),abi.encodeCall(e.execute,(bytes32(uint256(3)),address(a),1000,route(),50,block.timestamp+20)));
+  go(bytes32(uint256(1)),50);require(r1.attempted());require(a.balanceOf(recipient)==90);
+ }
+ function testOperatorCannotRecoverTreasury() public {
+  e.setOperator(address(123));a.mint(address(e),77);vm.prank(address(123));vm.expectRevert();e.recover(address(a),address(123),77);
+  require(a.balanceOf(address(e))==77);
+ }
+ function testRouterAllowancesCleared() public {go(bytes32(uint256(1)),50);require(a.allowance(address(e),address(r1))==0);require(b.allowance(address(e),address(r2))==0);}
+
+ function testMerchantSplitProtectsCustomerMinimum() public {
+  address merchant=address(0xCAFE);
+  e=new FlashArbitrageExecutor(address(pool),address(this),address(this),recipient,merchant,1000);
+  e.setToken(address(a),true,true);e.setToken(address(b),true,false);
+  e.setRouter(address(r1),0,true);e.setRouter(address(r2),0,true);
+  vm.expectRevert();go(bytes32(uint256(1)),82);
+  go(bytes32(uint256(2)),81);
+  require(a.balanceOf(recipient)==81);require(a.balanceOf(merchant)==9);
+  require(a.balanceOf(address(pool))==1e9+10);
+ }
+ function testMerchantPayoutFailureRevertsEverything() public {
+  address merchant=address(0xCAFE);
+  e=new FlashArbitrageExecutor(address(pool),address(this),address(this),recipient,merchant,1000);
+  e.setToken(address(a),true,true);e.setToken(address(b),true,false);
+  e.setRouter(address(r1),0,true);e.setRouter(address(r2),0,true);
+  a.blockRecipient(merchant);vm.expectRevert();go(bytes32(uint256(1)),1);
+  require(a.balanceOf(recipient)==0);require(a.balanceOf(address(pool))==1e9);
+ }
 }

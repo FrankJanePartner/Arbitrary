@@ -1,0 +1,82 @@
+{
+  "chain_id": 8453,
+  "registry_digest": "58cdc7b9f173f1125293eb257dfbb86dd7b7799af7b002573189d4bc194a79a1",
+  "checks": {
+    "loan_terms": {
+      "status": "PASS",
+      "value": [
+        5,
+        17106660120919
+      ]
+    },
+    "prices": {
+      "status": "PASS",
+      "value": {
+        "native_usd": "2504.12236965",
+        "loan_usd": "0.99985776",
+        "updated_at": 1791636545,
+        "loan_decimals": 6
+      }
+    },
+    "pools": {
+      "status": "PASS",
+      "count": 4
+    },
+    "quote": {
+      "status": "PASS",
+      "value": {
+        "route": {
+          "chain_id": 8453,
+          "hops": [
+            {
+              "kind": 2,
+              "router": "0x2626664c2603336E57B271c5C0b26F421741e481",
+              "pool": "0xb4CB800910B228ED3d0834cF79D697127BBB00e5",
+              "token_in": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+              "token_out": "0x4200000000000000000000000000000000000006",
+              "fee": 100,
+              "min_out": 0
+            },
+            {
+              "kind": 2,
+              "router": "0x2626664c2603336E57B271c5C0b26F421741e481",
+              "pool": "0xd0b53D9277642d899DF5C87A3966A349A798F224",
+              "token_in": "0x4200000000000000000000000000000000000006",
+              "token_out": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+              "fee": 500,
+              "min_out": 0
+            }
+          ]
+        },
+        "block_number": 52432341,
+        "amount_in": 100000000,
+        "amount_out": 99917156,
+        "hop_outputs": [
+          39877865626605210,
+          99917156
+        ]
+      }
+    }
+  },
+  "execution_certified": false,
+  "checked_at": 1791654025,
+  "registry": {
+    "chain_id": 8453,
+    "block_number": 52432341,
+    "blockers": [],
+    "checks": {
+      "provider": "efb34c67e8737046b820be55b2ee18d57d78eca48058175a3dde822d69b4fa69",
+      "pool": "ffcb26fbebbe09d9b0d8baef76a1fa218989be6c279b7acf9865d8fb6e0718ce",
+      "oracle": "abc7de2bbd6b21a5eead4ca887393fa1b311a46e89ed48d0ed4e3f12246b622b",
+      "token:USDC": "a6705a10bb756b5dea144591118be77d7af0c3eee3bf2dfe2583dcb0364fefab",
+      "feed:USDC": "bd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "token:WETH": "8a3a1f6a9f9dce633117adee5b458245835a8645a8c8726a26382a4622508b1c",
+      "feed:WETH": "bd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "Uniswap V3:factory": "95707a4ac71f20181a63ef7d180e3c625be5d20fc8f6f980befa966bad568132",
+      "Uniswap V3:router": "38bd640f47df62b2fd5a6755a63f4976ad847dc9b946ae0d145d21d16bb124e4",
+      "Uniswap V3:quoter": "ceb5b8bc35e09fc64b1c48c6b920e0d2e37d5710e4f3ef214e1a81f75acee51e"
+    }
+  },
+  "block": 52432341,
+  "status": "PROBES_PASS"
+}

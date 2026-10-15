@@ -22,6 +22,23 @@ async def read_price(rpc, token, block, now, max_age):
 
 
 async def prices(config, rpc, loan, block, now, max_age):
+    if config.chain_id in (42161, 8453, 10) and not config.sequencer_feed:
+        raise ValueError("missing sequencer feed")
+    if config.sequencer_feed:
+        round_data = await rpc.contract_call(
+            config.sequencer_feed,
+            "latestRoundData()",
+            [],
+            [],
+            ["uint80", "int256", "uint256", "uint256", "uint80"],
+            block,
+        )
+        if (
+            round_data[1] != 0
+            or round_data[2] == 0
+            or now - round_data[2] <= config.sequencer_grace_seconds
+        ):
+            raise ValueError("sequencer unavailable or recovery grace period")
     native = next(t for t in config.tokens if t.address.lower() == config.native_token.lower())
     np, nt = await read_price(rpc, native, block, now, max_age)
     lp, lt = await read_price(rpc, loan, block, now, max_age)

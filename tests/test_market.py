@@ -131,3 +131,24 @@ def test_only_two_or_three_hop_closed_cycles():
     cycles = find_cycles(pools)
     assert len(cycles) == 4
     assert all(len(c.hops) == 2 and len({h.pool for h in c.hops}) == 2 for c in cycles)
+
+
+def test_merchant_fee_reduces_customer_net_and_keeps_customer_minimum():
+    from flasharb.strategy.economics import evaluate_profit
+
+    q = Quote(
+        route=route(), block_number=10, amount_in=1000, amount_out=1100, hop_outputs=[1000, 1100]
+    )
+    fees = FeeEstimate(
+        gas_limit=1,
+        max_fee_per_gas=20,
+        priority_fee=0,
+        max_native_cost=20,
+        expected_native_cost=20,
+        components={},
+    )
+    price = PricePoint(native_usd=Decimal(10) ** 18, loan_usd=1, updated_at=100, loan_decimals=0)
+    policy = Policy(min_profit_usd=60, safety_buffer_usd=5, max_tx_usd=100)
+    d = evaluate_profit(q, 10, fees, price, policy, now=101, merchant_fee_bps=1000)
+    assert d.expected_net_usd == 56 and not d.eligible
+    assert d.min_profit_token == 85  # minimum customer proceeds, merchant share excluded

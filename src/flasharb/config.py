@@ -32,6 +32,8 @@ def load_config(path: Path) -> AppConfig:
                 "operator",
                 "owner",
                 "recipient",
+                "merchant",
+                "merchant_fee_bps",
                 "submission",
                 "private_rpc_env",
             }:

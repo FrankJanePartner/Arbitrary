@@ -1,0 +1,84 @@
+{
+  "chain_id": 137,
+  "registry_digest": "9bb5ce98b28dd2583c18564f4027391f5b7a639a98d9fa7415c248ce37ae464a",
+  "checks": {
+    "loan_terms": {
+      "status": "PASS",
+      "value": [
+        5,
+        10785946006385
+      ]
+    },
+    "prices": {
+      "status": "PASS",
+      "value": {
+        "native_usd": "0.10125552",
+        "loan_usd": "0.99985939",
+        "updated_at": 1791654003,
+        "loan_decimals": 6
+      }
+    },
+    "pools": {
+      "status": "PASS",
+      "count": 12
+    },
+    "quote": {
+      "status": "PASS",
+      "value": {
+        "route": {
+          "chain_id": 137,
+          "hops": [
+            {
+              "kind": 2,
+              "router": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+              "pool": "0x504E73e75e5e88500F632fFe130FC91fcE1559DA",
+              "token_in": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+              "token_out": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
+              "fee": 100,
+              "min_out": 0
+            },
+            {
+              "kind": 2,
+              "router": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+              "pool": "0xB6e57ed85c4c9dbfEF2a68711e9d6f36c56e0FcB",
+              "token_in": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
+              "token_out": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+              "fee": 500,
+              "min_out": 0
+            }
+          ]
+        },
+        "block_number": 95299188,
+        "amount_in": 100000000,
+        "amount_out": 61981083,
+        "hop_outputs": [
+          612141538548642313702,
+          61981083
+        ]
+      }
+    }
+  },
+  "execution_certified": false,
+  "checked_at": 1791654025,
+  "registry": {
+    "chain_id": 137,
+    "block_number": 95299188,
+    "blockers": [],
+    "checks": {
+      "provider": "1a95f317ee56e0b9aedc4f4b7abd9e546dc45c26d1d77e95bcf62b789d9a5486",
+      "pool": "f168c2e9e4d04292c7d5d526a9a917175a44369ab63a2f9997537acf0ffaaf2e",
+      "oracle": "e9b8d7ac606312698d9b24a55f8d479d196482542f5553dc78887cfa305df8aa",
+      "token:USDC": "7dbf0ee7d6d69b563891ceb7056cf0ff0fa09d21a48e5f812d89981c2ef95944",
+      "feed:USDC": "bd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "token:WPOL": "ae820ea59b005f58a45eea35b374afbd5dc503d4f219a6b670cd3453f1142ed5",
+      "feed:WPOL": "bd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "token:WETH": "06025eef5a4b1b3cb0031bce61d6a571f478e213d24984621eafcb59b8d71473",
+      "feed:WETH": "bd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "Uniswap V3:factory": "4d7b8525cd5d14343fa67a732fba5b24cddba11620ca88392f4ec6c52f91fd69",
+      "Uniswap V3:router": "04cdae9f4e3eea720a4d0ea57b46c20ae0c7f40ee77182f32dc63ddc0dfbba5b",
+      "Uniswap V3:quoter": "67d7cce806743d638e191025ab4233f44e99469f1bcda4c2b4b964b8af9099d9"
+    }
+  },
+  "block": 95299188,
+  "status": "PROBES_PASS"
+}

@@ -15,6 +15,9 @@ contract FlashArbitrageExecutor is Ownable2Step {
  address public immutable POOL;
  address public operator;
  address public recipient;
+ address public immutable merchant;
+ uint16 public immutable merchantFeeBps;
+ uint16 public constant MAX_MERCHANT_FEE_BPS=1000;
  bool public paused;
  mapping(address=>bool) public tokens;
  mapping(address=>bool) public loanAssets;
@@ -24,11 +27,13 @@ contract FlashArbitrageExecutor is Ownable2Step {
  bytes32 private context;
  error Invalid(); error Unauthorized(); error Unprofitable();
  event Executed(bytes32 indexed intentId,address indexed asset,address indexed recipient,uint256 amount,uint256 premium,uint256 profit,bytes32 routeHash);
+ event MerchantPaid(bytes32 indexed intentId,address indexed asset,address indexed merchant,uint256 amount);
  event ConfigurationChanged(bytes32 indexed kind,address indexed target,uint256 value);
  modifier idle(){if(phase!=0) revert Invalid();_;}
- constructor(address pool,address owner_,address operator_,address recipient_) Ownable(owner_) {
+ constructor(address pool,address owner_,address operator_,address recipient_,address merchant_,uint16 merchantFeeBps_) Ownable(owner_) {
   if(pool.code.length==0 || operator_==address(0) || recipient_==address(0) || recipient_==address(this)) revert Invalid();
-  POOL=pool;operator=operator_;recipient=recipient_;
+  if(merchantFeeBps_>MAX_MERCHANT_FEE_BPS || (merchantFeeBps_>0 && merchant_==address(0)) || merchant_==address(this)) revert Invalid();
+  POOL=pool;operator=operator_;recipient=recipient_;merchant=merchant_;merchantFeeBps=merchantFeeBps_;
  }
  function setOperator(address value) external onlyOwner idle {if(value==address(0))revert Invalid();operator=value;emit ConfigurationChanged("operator",value,0);}
  function setRecipient(address value) external onlyOwner idle {if(value==address(0)||value==address(this))revert Invalid();recipient=value;emit ConfigurationChanged("recipient",value,0);}
@@ -74,10 +79,15 @@ contract FlashArbitrageExecutor is Ownable2Step {
   uint256 balance=IERC20(asset).balanceOf(address(this));
   if(balance<start+amount+premium+minProfit)revert Unprofitable();
   uint256 profit=balance-start-amount-premium;
+  uint256 merchantAmount=profit*merchantFeeBps/10000;
+  uint256 customerProfit=profit-merchantAmount;
+  if(customerProfit<minProfit)revert Unprofitable();
   IERC20(asset).forceApprove(POOL,amount+premium);
-  IERC20(asset).safeTransfer(recipient,profit);
+  if(merchantAmount>0)IERC20(asset).safeTransfer(merchant,merchantAmount);
+  IERC20(asset).safeTransfer(recipient,customerProfit);
+  emit MerchantPaid(intentId,asset,merchant,merchantAmount);
   if(IERC20(asset).balanceOf(address(this))!=start+amount+premium)revert Invalid();
-  emit Executed(intentId,asset,recipient,amount,premium,profit,keccak256(abi.encode(route)));
+  emit Executed(intentId,asset,recipient,amount,premium,customerProfit,keccak256(abi.encode(route)));
   return true;
  }
 }

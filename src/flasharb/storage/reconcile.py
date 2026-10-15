@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -37,12 +38,47 @@ def decode_profit(receipt, id, metadata):
     return profit
 
 
+def decode_merchant_fee(receipt, id, metadata, customer_profit):
+    if "merchant_fee_bps" not in metadata:
+        return 0  # Historical receipts from the pre-commercial executor.
+    signature = "0x" + Web3.keccak(text="MerchantPaid(bytes32,address,address,uint256)").hex()
+    logs = [
+        x
+        for x in receipt.get("logs", [])
+        if x["address"].lower() == metadata["executor"].lower()
+        and x.get("topics")
+        and x["topics"][0].lower() == signature.lower()
+    ]
+    if len(logs) != 1:
+        raise ValueError("merchant event missing or duplicated")
+    event = logs[0]
+    if (
+        len(event["topics"]) != 4
+        or event["topics"][1].removeprefix("0x").lower() != id.removeprefix("0x").lower()
+        or event["topics"][2][-40:].lower() != metadata["asset"][-40:].lower()
+        or event["topics"][3][-40:].lower() != metadata["merchant"][-40:].lower()
+    ):
+        raise ValueError("merchant event mismatch")
+    fee = decode(["uint256"], bytes.fromhex(event["data"][2:]))[0]
+    if fee != (customer_profit + fee) * metadata["merchant_fee_bps"] // 10000:
+        raise ValueError("merchant fee amount mismatch")
+    return fee
+
+
 async def reconcile_chain(store, chain, rpc, head_number, timezone="Africa/Lagos"):
-    # Retain a recent finalized audit window to detect deeper-than-confirmation reorganizations.
-    rows = store.rows(
-        "SELECT * FROM executions WHERE chain_id=? ORDER BY created DESC LIMIT 500",
-        (chain.chain_id,),
-    )
+    # Always prioritize every unresolved intent. Audit final history in small hourly batches.
+    rows = store.pending(chain.chain_id)
+    audit_key = f"receipt-audit:{chain.chain_id}"
+    audit = store.get_state(audit_key, {"time": 0, "cursor": ""})
+    if time.time() - audit["time"] >= 3600:
+        history = store.rows(
+            "SELECT * FROM executions WHERE chain_id=? AND status IN ('confirmed','failed','cancelled') AND id>? ORDER BY id LIMIT 5",
+            (chain.chain_id, audit["cursor"]),
+        )
+        rows.extend(history)
+        store.set_state(
+            audit_key, {"time": time.time(), "cursor": history[-1]["id"] if history else ""}
+        )
     for row in rows:
         old = json.loads(row["receipt"]) if row["receipt"] else None
         if old:
@@ -72,6 +108,11 @@ async def reconcile_chain(store, chain, rpc, head_number, timezone="Africa/Lagos
         success = int(found["status"], 16) == 1
         cancelled = winning["kind"] == "cancel"
         profit = decode_profit(found, row["id"], metadata) if success and not cancelled else 0
+        merchant_fee = (
+            decode_merchant_fee(found, row["id"], metadata, profit)
+            if success and not cancelled
+            else 0
+        )
         cost = await actual_cost(found, chain, rpc)
         native_usd = Decimal(metadata["native_usd"])
         loan_usd = Decimal(metadata["loan_usd"])
@@ -93,6 +134,9 @@ async def reconcile_chain(store, chain, rpc, head_number, timezone="Africa/Lagos
             {
                 "accounting": {
                     "profit_token": str(profit),
+                    "merchant_fee_token": str(merchant_fee),
+                    "gross_surplus_token": str(profit + merchant_fee),
+                    "merchant_fee_usd": str(Decimal(merchant_fee) * loan_usd / 10**decimals),
                     "gas_native": str(cost),
                     "gas_usd": str(gas_usd),
                     "profit_usd": str(profit_usd),

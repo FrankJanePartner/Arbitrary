@@ -65,3 +65,67 @@ def test_receipt_event_recipient_matches_config():
     meta["recipient"] = "0x" + "44" * 20
     with pytest.raises(ValueError, match="recipient"):
         decode_profit({"logs": [log]}, id, meta)
+
+
+@pytest.mark.asyncio
+async def test_history_audit_does_not_starve_pending_recovery(tmp_path):
+    from flasharb.storage.reconcile import reconcile_chain
+    from flasharb.config import load_config
+    from pathlib import Path
+
+    s = Store(tmp_path / "db")
+    chain = load_config(Path("config/app.yaml")).chains[0]
+    for i in range(600):
+        s.db.execute(
+            "INSERT INTO executions(id,chain_id,status,metadata) VALUES(?,1,'confirmed','{}')",
+            (str(i),),
+        )
+        s.db.execute("INSERT INTO tx_hashes(hash,intent_id) VALUES(?,?)", ("0x" + str(i), str(i)))
+    s.db.execute(
+        "INSERT INTO executions(id,chain_id,status,metadata) VALUES('pending',1,'unknown','{}')"
+    )
+    s.db.execute("INSERT INTO tx_hashes(hash,intent_id) VALUES('0xpending','pending')")
+
+    class RPC:
+        calls = []
+
+        async def call(self, m, p):
+            self.calls.append((m, p))
+            return None
+
+    rpc = RPC()
+    await reconcile_chain(s, chain, rpc, 100)
+    assert len(rpc.calls) <= 6 and any(p == ["0xpending"] for m, p in rpc.calls)
+    rpc.calls = []
+    await reconcile_chain(s, chain, rpc, 100)
+    assert rpc.calls == [("eth_getTransactionReceipt", ["0xpending"])]
+
+
+def test_merchant_event_must_match_disclosed_recipient_and_fee():
+    from flasharb.storage.reconcile import decode_merchant_fee
+    from eth_abi import encode
+    from web3 import Web3
+
+    asset = "0x" + "11" * 20
+    merchant = "0x" + "22" * 20
+    executor = "0x" + "33" * 20
+    intent = "01" * 32
+    log = {
+        "address": executor,
+        "topics": [
+            "0x" + Web3.keccak(text="MerchantPaid(bytes32,address,address,uint256)").hex(),
+            "0x" + intent,
+            "0x" + "0" * 24 + asset[2:],
+            "0x" + "0" * 24 + merchant[2:],
+        ],
+        "data": "0x" + encode(["uint256"], [9]).hex(),
+    }
+    meta = {"asset": asset, "merchant": merchant, "executor": executor, "merchant_fee_bps": 1000}
+    assert decode_merchant_fee({"logs": [log]}, intent, meta, 81) == 9
+    meta["merchant"] = "0x" + "44" * 20
+    with pytest.raises(ValueError, match="merchant event mismatch"):
+        decode_merchant_fee({"logs": [log]}, intent, meta, 81)
+    meta["merchant"] = merchant
+    meta["merchant_fee_bps"] = 500
+    with pytest.raises(ValueError, match="amount mismatch"):
+        decode_merchant_fee({"logs": [log]}, intent, meta, 81)

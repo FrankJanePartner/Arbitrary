@@ -1,0 +1,15 @@
+services:
+  observer:
+    build: .
+    restart: "no"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config:ro
+    environment:
+      - RPC_1
+      - RPC_42161
+      - RPC_8453
+      - RPC_10
+      - RPC_137
+      - RPC_43114
+    command: ["observe"]

@@ -10,7 +10,7 @@ tokens:
 - address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E'
   symbol: USDC
   decimals: 6
-  oracle: '0xb0D7A8bbDcdb1203850b742bB4d7f57a1F1C8483'
+  oracle: '0xF096872672F44d6EBA71458D74fe67F9a77a23B9'
   loan: true
 - address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7'
   symbol: WAVAX

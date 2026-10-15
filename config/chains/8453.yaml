@@ -10,12 +10,12 @@ tokens:
 - address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
   symbol: USDC
   decimals: 6
-  oracle: '0xf52D010c7d4ecBfda92c2509900593CE34535D86'
+  oracle: '0x7e860098F58bBFC8648a4311b374B1D669a2bc6B'
   loan: true
 - address: '0x4200000000000000000000000000000000000006'
   symbol: WETH
   decimals: 18
-  oracle: '0x9dA00D23465282005DB222a441a663eE7B9dfCc8'
+  oracle: '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70'
   loan: false
 venues:
 - name: Uniswap V3
@@ -30,3 +30,4 @@ venues:
   - 10000
 enabled: false
 fee_model: op
+sequencer_feed: '0xBCF85224fc0756B9Fa45aA7892530B47e10b6433'

@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-10-10T17:38:38.178214+00:00",
+  "scope": "RPC connectivity only, not integration certification",
+  "networks": [
+    {
+      "chain_id": 1,
+      "endpoint": "https://ethereum-rpc.publicnode.com",
+      "status": "REACHABLE"
+    },
+    {
+      "chain_id": 42161,
+      "endpoint": "https://arb1.arbitrum.io/rpc",
+      "status": "REACHABLE"
+    },
+    {
+      "chain_id": 8453,
+      "endpoint": "https://mainnet.base.org",
+      "status": "REACHABLE"
+    },
+    {
+      "chain_id": 10,
+      "endpoint": "https://mainnet.optimism.io",
+      "status": "REACHABLE"
+    },
+    {
+      "chain_id": 137,
+      "endpoint": "https://polygon-bor-rpc.publicnode.com",
+      "status": "REACHABLE"
+    },
+    {
+      "chain_id": 43114,
+      "endpoint": "https://api.avax.network/ext/bc/C/rpc",
+      "status": "REACHABLE"
+    }
+  ]
+}

@@ -53,11 +53,15 @@ class ChainConfig(Model):
     executor: str | None = None
     executor_codehash: str | None = None
     recipient: str | None = None
+    merchant: str = "0x0000000000000000000000000000000000000000"
+    merchant_fee_bps: int = Field(default=0, ge=0, le=1000)
     operator: str | None = None
     owner: str | None = None
     confirmations: int = Field(default=12, ge=1)
     max_head_age: int = Field(default=60, ge=1)
     fee_model: Literal["evm", "arbitrum", "op"] = "evm"
+    sequencer_feed: str | None = None
+    sequencer_grace_seconds: int = Field(default=3600, ge=1)
     private_rpc_env: str | None = None
     submission: Literal["public", "private"] = "public"
     registry_digest: str = ""

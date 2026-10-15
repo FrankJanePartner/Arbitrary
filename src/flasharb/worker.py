@@ -36,9 +36,16 @@ class Worker:
         self._seen = {}
         self._pools = {}
         self._verified = {}
-        store.set_state("mode", mode)
-        if store.get_state("paused") is None:
-            store.set_state("paused", False)
+
+    def submission_allowed(self, chain, policy):
+        return (
+            not self.stop.is_set()
+            and not self.store.get_state("paused", False)
+            and self.store.get_state("enabled:" + str(chain.chain_id), chain.enabled)
+            and self.store.get_state("mode", "observe") == "live"
+            and self.store.get_state("policy", self.config.policy.model_dump(mode="json"))
+            == policy.model_dump(mode="json")
+        )
 
     async def reconcile(self, chain, rpc):
         head = await rpc.head(chain.max_head_age)
@@ -167,7 +174,15 @@ class Worker:
                     continue
                 fees = await estimate_fees(transaction(intent), chain, rpc, b)
                 premium = (q.amount_in * premium_bps + 9999) // 10000
-                decision = evaluate_profit(q, premium, fees, price, policy, now=now)
+                decision = evaluate_profit(
+                    q,
+                    premium,
+                    fees,
+                    price,
+                    policy,
+                    now=now,
+                    merchant_fee_bps=chain.merchant_fee_bps,
+                )
                 payload.update(
                     {
                         "decision": decision.model_dump(mode="json"),
@@ -195,7 +210,13 @@ class Worker:
                     url = os.environ.get(chain.private_rpc_env or "")
                     if not url:
                         raise ValueError("private submission endpoint missing; no fallback")
-                    private = RpcClient(url, chain.chain_id)
+                    private = RpcClient(
+                        url,
+                        chain.chain_id,
+                        self.config.rpc_rps,
+                        self.config.rpc_daily_calls,
+                        store=self.store,
+                    )
                     await private.check_chain()
                 try:
                     tx = transaction(intent)
@@ -215,6 +236,8 @@ class Worker:
                         "executor": chain.executor,
                         "asset": loan.address,
                         "recipient": chain.recipient,
+                        "merchant": chain.merchant,
+                        "merchant_fee_bps": chain.merchant_fee_bps,
                         "amount": intent.amount,
                         "native_usd": str(price.native_usd),
                         "loan_usd": str(price.loan_usd),
@@ -226,6 +249,8 @@ class Worker:
                     manager = TransactionManager(
                         self.store, rpc, self.signer, chain.chain_id, private
                     )
+                    if not self.submission_allowed(chain, policy):
+                        break
                     await manager.submit_transaction(
                         id,
                         tx,
@@ -234,6 +259,10 @@ class Worker:
                         policy.global_daily_usd,
                         day,
                         metadata,
+                        can_submit=lambda: (
+                            self.submission_allowed(chain, policy)
+                            and int(time.time()) < intent.deadline - 3
+                        ),
                     )
                     break
                 finally:
@@ -256,13 +285,23 @@ class Worker:
         )
 
     async def run(self, once=False):
+        from .runtime import WorkerLock
+
+        with WorkerLock(self.store.path.resolve().with_suffix(".worker.lock")):
+            self.store.set_state("mode", self.mode)
+            self.store.set_state("worker", "running")
+            await self._run(once)
+
+    async def _run(self, once=False):
         try:
             while not self.stop.is_set():
                 for chain in self.config.chains:
                     enabled = self.store.get_state("enabled:" + str(chain.chain_id), chain.enabled)
-                    if enabled and chain.chain_id not in self.rpcs:
+                    if (
+                        enabled or self.store.pending(chain.chain_id)
+                    ) and chain.chain_id not in self.rpcs:
                         try:
-                            self.rpcs[chain.chain_id] = from_config(chain, self.config)
+                            self.rpcs[chain.chain_id] = from_config(chain, self.config, self.store)
                         except Exception as error:
                             self.store.set_state(
                                 "health:" + str(chain.chain_id),

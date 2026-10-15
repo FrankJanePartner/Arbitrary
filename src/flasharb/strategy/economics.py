@@ -3,13 +3,15 @@ from decimal import Decimal, ROUND_CEILING
 from ..models import ProfitDecision
 
 
-def evaluate_profit(quote, premium, fees, conversion, policy, now=None):
+def evaluate_profit(quote, premium, fees, conversion, policy, now=None, merchant_fee_bps=0):
     now = int(time.time()) if now is None else now
     gas = Decimal(fees.max_native_cost) * conversion.native_usd / 10**18
+    if not 0 <= merchant_fee_bps <= 1000:
+        raise ValueError("merchant fee outside permitted range")
+    raw_surplus = quote.amount_out - quote.amount_in - premium
+    merchant_fee = max(0, raw_surplus) * merchant_fee_bps // 10000
     surplus = (
-        Decimal(quote.amount_out - quote.amount_in - premium)
-        * conversion.loan_usd
-        / 10**conversion.loan_decimals
+        Decimal(raw_surplus - merchant_fee) * conversion.loan_usd / 10**conversion.loan_decimals
     )
     net = surplus - gas - policy.safety_buffer_usd
     threshold = (

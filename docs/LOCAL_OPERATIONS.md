@@ -26,7 +26,7 @@ uv run flasharb serve
 
 RPC environment names are `RPC_1`, `RPC_42161`, `RPC_8453`, `RPC_10`, `RPC_137` and `RPC_43114`. Supply your actual endpoint locally; do not commit credentials. `.env` is ignored by Git but is not automatically loaded. A dashboard without configured RPC endpoints still opens and displays disconnected networks.
 
-Use **one worker process at a time**. `serve`, `observe`, `simulate` and `run` each start a worker. Do not run the dashboard worker alongside a CLI worker against the same database. Cross-process locking and full restart recovery acceptance tests remain outstanding. RPC request quotas currently reset on process restart; account-level provider quotas still apply.
+Use **one worker process at a time**. `serve`, `observe`, `simulate` and `run` each start a worker; an OS lock prevents duplicates. To monitor a separate CLI worker, use `uv run flasharb serve --dashboard-only`. RPC quotas persist across restarts; provider account-level quotas also apply.
 
 ## Controls and reports
 
@@ -52,6 +52,19 @@ The live worker requires deployment verification, local signer unlock and matchi
 
 ## Local data and recovery
 
-The `data/` directory contains the SQLite database, dashboard password hash, reports and transaction/deployment journals. Keep it private and back it up. Never delete the database to clear a stuck transaction: pending nonces and budget reservations are financial state. Stop the worker before restoring a backup, retain the latest database, and reconcile against the chain before any new signing. Backup creation is tested; full restore/recovery acceptance is outstanding.
+The `data/` directory contains the SQLite database, dashboard password hash, reports and transaction/deployment journals. Keep it private and back it up. Never delete the database to clear a stuck transaction: pending nonces and budget reservations are financial state. Stop the worker before restoring a backup, retain the latest database, and reconcile against the chain before any new signing. Backup preservation of pause and pending fee reservations is tested. A restored database must still be reconciled against current on-chain nonces.
 
 No licence has been added that grants public reuse rights. Repository access and source possession do not by themselves settle ownership or employment agreements; personal/company handover remains a separate documented step.
+
+
+## Interrupted transactions and deployments
+
+`uv run flasharb recover INTENT_ID` reconciles receipts and can resend the same signed bytes if the intent has not expired. Stop the worker first. Expired intents require explicit cancellation (`--cancel --keystore PATH`) or investigation; cancellations consume gas and remain budgeted. Private submission configuration has no public fallback. Never erase a pending record to bypass a reservation.
+
+`apply-plan` uses plan-keyed records in the SQLite database. Repeat the exact same command to resume; confirmed steps are checked on-chain and skipped, while unresolved steps reuse the original signed nonce. A provisional/pending result means resume later, not create a new plan. Another unresolved owner plan prevents signing a different plan. Base/OP application remains blocked pending fee certification.
+
+## Commercial deployments
+
+Read [commercial wallet terms](COMMERCIAL_WALLETS.md). Regenerate all deployment plans for the new merchant-aware constructor. Use a separate data directory, operator key, customer recipient and budget for every installation. An address alone is not a wallet backup: keep signer recovery material under the customer's control.
+
+Docker/Compose observer packaging is supplied. Docker is unavailable in the build environment, so the image has not been build-tested. Local Python/WSL installation is the verified path. Windows host sleep pauses polling; after waking, pending receipts are reconciled before scanning. Mainnet readiness still requires the acceptance gates in BUILD_STATUS.md.
