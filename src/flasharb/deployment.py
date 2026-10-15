@@ -8,13 +8,14 @@ def deploy_plan(
     owner,
     operator,
     recipient,
-    merchant="0x0000000000000000000000000000000000000000",
-    merchant_fee_bps=0,
+    merchant=None,
+    merchant_fee_bps=None,
 ):
     values = [Web3.to_checksum_address(x) for x in [chain.pool, owner, operator, recipient]]
     if any(int(x, 16) == 0 for x in values):
         raise ValueError("zero address")
-    merchant = Web3.to_checksum_address(merchant)
+    merchant = Web3.to_checksum_address(chain.merchant if merchant is None else merchant)
+    merchant_fee_bps = chain.merchant_fee_bps if merchant_fee_bps is None else merchant_fee_bps
     if not 0 <= merchant_fee_bps <= 1000 or (merchant_fee_bps and int(merchant, 16) == 0):
         raise ValueError("invalid merchant address or fee; maximum 1000 bps")
     art = artifact()

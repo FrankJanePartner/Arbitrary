@@ -230,16 +230,26 @@ def backup(out: Path, config: Path = DEFAULT):
 @app.command("deploy-plan")
 def deployment_plan(
     chain: int,
-    owner: str,
-    operator: str,
-    recipient: str,
-    merchant: str = "0x0000000000000000000000000000000000000000",
-    merchant_fee_bps: int = 0,
+    owner: str | None = None,
+    operator: str | None = None,
+    recipient: str | None = None,
+    merchant: str | None = None,
+    merchant_fee_bps: int | None = None,
     out: Path = Path("data/deploy-plan.json"),
     config: Path = DEFAULT,
 ):
     c = load_config(config)
-    p = make_plan(selected(c, chain), owner, operator, recipient, merchant, merchant_fee_bps)
+    ch = selected(c, chain)
+    owner, operator, recipient = (
+        owner or ch.owner,
+        operator or ch.operator,
+        recipient or ch.recipient,
+    )
+    if not all([owner, operator, recipient]):
+        raise typer.BadParameter(
+            "Set OWNER, GAS and PROFIT wallet addresses in .env or pass explicit options"
+        )
+    p = make_plan(ch, owner, operator, recipient, merchant, merchant_fee_bps)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(p, indent=2))
     output(p)

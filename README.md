@@ -34,7 +34,7 @@ Open http://127.0.0.1:8000 on the same computer. All networks start disabled. Se
 
 ## Commercial wallets
 
-Customer profits, operator gas funds and merchant revenue have separate addresses. Merchant fees are explicit, default to zero and are immutable per deployed executor. See [wallet and fee configuration](docs/COMMERCIAL_WALLETS.md).
+Customer profits, operator gas funds and merchant revenue have separate addresses. Merchant fees are explicit, default to 5% (500 basis points) and are immutable per deployed executor. See [wallet and fee configuration](docs/COMMERCIAL_WALLETS.md).
 
 ## Project guides
 
@@ -43,3 +43,5 @@ Customer profits, operator gas funds and merchant revenue have separate addresse
 - [Integration evidence](docs/INTEGRATION_MATRIX.md)
 
 No private keys or RPC secrets belong in this repository. No profitability guarantee or independent security audit is claimed.
+
+For the office computer, follow [desktop setup](docs/DESKTOP_SETUP.md) and copy the [environment template](.env.example).

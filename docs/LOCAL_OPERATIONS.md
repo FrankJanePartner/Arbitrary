@@ -16,7 +16,7 @@ uv run flasharb serve
 
 Choose a dashboard password of at least 12 characters at the local prompt. Open http://127.0.0.1:8000 on the same computer. The server listens only on loopback. It starts in observe mode and cannot enable live signing through a browser. Do not expose it to the public internet. Stop with Ctrl+C; starting again preserves an emergency pause.
 
-All networks start disabled. To observe Arbitrum, set an HTTPS RPC endpoint in your terminal's `RPC_42161` environment variable, then run:
+All networks start disabled. To observe Arbitrum, set an HTTPS RPC endpoint as `RPC_42161` in the repository-root `.env` file, then run:
 
 ```sh
 uv run flasharb doctor --chain 42161
@@ -24,7 +24,7 @@ uv run flasharb enable 42161
 uv run flasharb serve
 ```
 
-RPC environment names are `RPC_1`, `RPC_42161`, `RPC_8453`, `RPC_10`, `RPC_137` and `RPC_43114`. Supply your actual endpoint locally; do not commit credentials. `.env` is ignored by Git but is not automatically loaded. A dashboard without configured RPC endpoints still opens and displays disconnected networks.
+RPC environment names are `RPC_1`, `RPC_42161`, `RPC_8453`, `RPC_10`, `RPC_137` and `RPC_43114`. Supply your actual endpoint locally; do not commit credentials. The repository-root `.env` is automatically loaded and ignored by Git. Existing process environment variables take precedence; restart the app after editing the file. Public wallet addresses and RPC endpoints share this file; signing keys stay in an encrypted keystore. See [desktop setup](DESKTOP_SETUP.md). A dashboard without configured RPC endpoints still opens and displays disconnected networks.
 
 Use **one worker process at a time**. `serve`, `observe`, `simulate` and `run` each start a worker; an OS lock prevents duplicates. To monitor a separate CLI worker, use `uv run flasharb serve --dashboard-only`. RPC quotas persist across restarts; provider account-level quotas also apply.
 

@@ -18,7 +18,7 @@ Open http://127.0.0.1:8000 on the same computer. Networks start disabled. RPC cr
 
 ## Commercial setup decisions
 
-Collect public customer-profit, operator/gas and merchant addresses for each intended network. Select the fee in basis points (100 bps = 1%), with default 0 and maximum 1,000. Select the administrative owner and who retains its key. The merchant and rate are immutable in the deployed contract. The operator needs an encrypted keystore locally; never request recipient or merchant private keys.
+Collect public customer-profit, operator/gas and merchant addresses for each intended network. The selected fee is 500 basis points (5%), with a contract maximum of 1,000. Put public addresses and RPC endpoints in the single local `.env` file described in [desktop setup](DESKTOP_SETUP.md). Select the administrative owner and who retains its key. The merchant and rate are immutable in the deployed contract. The operator needs an encrypted keystore locally; never request recipient or merchant private keys.
 
 Use `flasharb deploy-plan --help` to generate an unsigned plan. Confirm addresses, network and fee in that plan. Deploying costs gas; the present checkpoint has not deployed anything on mainnet. The `apply-plan` command can resume the exact plan after interruption using its durable journal. Base/OP mainnet application remains blocked under the strict fee policy.
 

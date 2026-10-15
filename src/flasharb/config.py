@@ -1,4 +1,6 @@
 import hashlib
+import os
+from dotenv import load_dotenv
 import json
 from pathlib import Path
 import yaml
@@ -12,6 +14,8 @@ def check_registry(path: Path, expected: str):
 
 
 def load_config(path: Path) -> AppConfig:
+    path = path.resolve()
+    load_dotenv(path.parent.parent / ".env", override=False, interpolate=False)
     data = yaml.safe_load(path.read_text())
     lock = json.loads((path.parent / "registry.lock.json").read_text())
     chains = []
@@ -39,6 +43,37 @@ def load_config(path: Path) -> AppConfig:
             }:
                 raise ValueError("unsupported network override")
             setattr(c, k, v)
+    wallet_fields = {
+        "OWNER_WALLET": "owner",
+        "GAS_WALLET": "operator",
+        "PROFIT_WALLET": "recipient",
+        "MERCHANT_WALLET": "merchant",
+    }
+    for c in chains:
+        for label, field in wallet_fields.items():
+            value = os.getenv(f"ARBITRARY_{label}_{c.chain_id}") or os.getenv(f"ARBITRARY_{label}")
+            if value:
+                if not Web3.is_address(value) or int(value, 16) == 0:
+                    raise ValueError(f"Invalid {label} public address")
+                setattr(c, field, Web3.to_checksum_address(value))
+        value = os.getenv(f"ARBITRARY_EXECUTOR_{c.chain_id}")
+        if value:
+            if not Web3.is_address(value) or int(value, 16) == 0:
+                raise ValueError("Invalid executor address")
+            c.executor = Web3.to_checksum_address(value)
+        fee = os.getenv(f"ARBITRARY_MERCHANT_FEE_BPS_{c.chain_id}") or os.getenv(
+            "ARBITRARY_MERCHANT_FEE_BPS"
+        )
+        if fee:
+            try:
+                rate = int(fee)
+                if not 0 <= rate <= 1000:
+                    raise ValueError()
+            except ValueError:
+                raise ValueError(
+                    "Merchant rate must be an integer from 0 to 1000 basis points"
+                ) from None
+            c.merchant_fee_bps = rate
     data.pop("networks", None)
     return AppConfig(chains=chains, **data)
 
