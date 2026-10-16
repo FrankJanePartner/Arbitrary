@@ -22,7 +22,7 @@ from web3.logs import DISCARD
 
 from flasharb.config import load_config, verify_chain
 from flasharb.deployment import verify_deployment
-from flasharb.execution.abi import artifact
+from flasharb.execution.abi import artifact, transaction
 from flasharb.execution.signer import Signer
 from flasharb.execution.simulation import simulate
 from flasharb.market.quotes import QuoteService
@@ -203,7 +203,16 @@ async def exercise(w3, rpc, directory, fixture_artifact):
         deadline=int(time.time()) + 120,
         block_number=block,
     )
-    assert (await simulate(preflight, rpc)).ok, "Real-protocol profitable preflight failed"
+    preflight_result = await simulate(preflight, rpc)
+    if not preflight_result.ok:
+        # The RPC client intentionally hides provider text because it can echo a
+        # credential URL. This test is hard-limited to loopback Anvil, so a direct
+        # diagnostic can safely report the local EVM's revert reason.
+        raw = w3.provider.make_request(
+            "eth_call", [transaction(preflight), hex(preflight.block_number)]
+        )
+        detail = raw.get("error", {}).get("message", "local EVM returned no revert detail")
+        raise AssertionError(f"Real-protocol profitable preflight failed: {detail[:240]}")
     assert not (await simulate(preflight.model_copy(update={"min_profit_token": 10**12}), rpc)).ok
     assert quote.amount_out > quote.amount_in
     # Local gate evidence follows actual successful real-protocol simulation. Its
