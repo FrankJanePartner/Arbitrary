@@ -60,10 +60,13 @@ registry digest. It is deleted with the temporary directory. Never rename the
 report to `fork-42161.json`, change its status to `PASS`, or use it to bypass the
 production verification gate.
 
-## Validation at introduction
+## Recorded desktop run
 
-The Solidity fixture compiled with Solc 0.8.30 (Prague), lint passed, and all 63
-Python tests passed, including rejection of nonlocal chains and snapshot cleanup
-on failure. The full upstream-backed worker test could not be run in the authoring
-environment because its public Arbitrum RPC was unreachable. Its result must be
-verified on the desktop's working fork; no end-to-end pass is claimed yet.
+On 16 October 2026, the operator ran the harness on the desktop against a local
+Anvil fork of Arbitrum One. It returned `LOCAL_WORKER_PASS` and
+`"snapshot_restored": true`. The synthetic test reported a 26.223941 USDC
+customer payout, a 1.380207 USDC merchant payout, a 0.005 USDC loan premium,
+and 0.000511676888743318 ETH local EVM gas accounting. These figures are from
+manufactured prices/liquidity and are not real market earnings or a live gas
+quote. The 63 Python tests also pass, including harness chain guards and
+snapshot cleanup on failure.
