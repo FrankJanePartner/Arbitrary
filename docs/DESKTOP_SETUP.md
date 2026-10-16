@@ -48,3 +48,15 @@ Shutting down or sleeping the computer stops scanning and new submissions. Alrea
 ## Before funded operation
 
 The remaining gates in [build status](BUILD_STATUS.md) still apply, including full Python-worker real-protocol fork acceptance. Base and OP live execution remain blocked by the fee-ceiling requirement. This desktop configuration change does not certify production readiness or demonstrate profitable trading. No code has been installed on the office computer by this repository update.
+
+## Windows-clone registry digest error
+
+A Windows Git checkout can convert LF to CRLF and change registry file hashes. The repository now pins registry files to LF using `.gitattributes`. For an existing checkout, pull the update and run inside Ubuntu:
+
+```sh
+git pull --ff-only
+python3 scripts/repair-registry-line-endings.py
+uv run flasharb init
+```
+
+The repair verifies all six files against the existing digest manifest before writing any changes. It only normalizes CRLF when doing so reproduces the exact expected bytes. It refuses other content differences and never regenerates hashes or bypasses verification.

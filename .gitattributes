@@ -1,0 +1,3 @@
+# Registry hashes cover exact bytes. Keep these files identical on Windows and Linux.
+config/chains/*.yaml text eol=lf
+config/registry.lock.json text eol=lf
