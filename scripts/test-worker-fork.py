@@ -143,8 +143,8 @@ async def exercise(w3, rpc, directory, fixture_artifact):
     config.chains = [chain]
     config.data_dir = str(directory)
     config.policy = Policy(
-        min_loan=10**6,
-        max_loan=10**6,
+        min_loan=10**7,
+        max_loan=10**7,
         size_samples=2,
         min_profit_usd=Decimal("0.01"),
         safety_buffer_usd=Decimal("0.01"),
@@ -189,7 +189,7 @@ async def exercise(w3, rpc, directory, fixture_artifact):
         ],
     )
     block = w3.eth.block_number
-    quote = await QuoteService(chain, rpc).quote_route(route, 10**6, block)
+    quote = await QuoteService(chain, rpc).quote_route(route, 10**7, block)
     preflight = Intent(
         id="01" * 32,
         chain_id=31337,
@@ -197,7 +197,7 @@ async def exercise(w3, rpc, directory, fixture_artifact):
         nonce=0,
         executor=executor.address,
         asset=loan.address,
-        amount=10**6,
+        amount=10**7,
         route=route,
         min_profit_token=1,
         deadline=min(int(time.time()) + 120, int(w3.eth.get_block(block).timestamp) + 120),
