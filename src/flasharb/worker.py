@@ -22,6 +22,21 @@ from .execution.transactions import TransactionManager
 from .storage.reconcile import reconcile_chain
 from .deployment import verify_deployment
 
+OBSERVE_MAX_ROUTES = 2
+OBSERVE_SIZE_SAMPLES = 2
+OBSERVE_MIN_POLL_SECONDS = 240
+POOL_CACHE_SECONDS = 900
+POOL_CACHE_BLOCKS = 100_000
+
+
+def scan_quote_budget(policy, mode):
+    if mode == "observe":
+        return (
+            min(policy.max_route_quotes, OBSERVE_MAX_ROUTES),
+            min(policy.size_samples, OBSERVE_SIZE_SAMPLES),
+        )
+    return policy.max_route_quotes, policy.size_samples
+
 
 class Worker:
     def __init__(self, config, store, signer=None, mode="observe"):
@@ -35,7 +50,30 @@ class Worker:
         self.rpcs = {}
         self._seen = {}
         self._pools = {}
+        self._pool_cache_meta = {}
         self._verified = {}
+
+    async def load_pools(self, chain, rpc, block):
+        now = time.monotonic()
+        cached = self._pools.get(chain.chain_id)
+        meta = self._pool_cache_meta.get(chain.chain_id)
+        if cached is not None and meta is not None:
+            fresh = (
+                meta["registry_digest"] == chain.registry_digest
+                and block >= meta["block"]
+                and block - meta["block"] < POOL_CACHE_BLOCKS
+                and now - meta["time"] < POOL_CACHE_SECONDS
+            )
+            if fresh:
+                return cached
+        pools = await discover_pools(chain, rpc, block)
+        self._pools[chain.chain_id] = pools
+        self._pool_cache_meta[chain.chain_id] = {
+            "registry_digest": chain.registry_digest,
+            "block": block,
+            "time": now,
+        }
+        return pools
 
     def submission_allowed(self, chain, policy):
         return (
@@ -107,22 +145,33 @@ class Worker:
                 raise ValueError("fork verification outdated")
             if self.signer.address.lower() != chain.operator.lower():
                 raise ValueError("operator signer mismatch")
-        pools = await discover_pools(chain, rpc, block)
-        self._pools[chain.chain_id] = pools
+        pools = await self.load_pools(chain, rpc, block)
         routes = find_cycles(pools, chain_id=chain.chain_id)
         loans = {t.address.lower(): t for t in chain.tokens if t.loan}
+        route_limit, sample_count = scan_quote_budget(policy, mode)
         routes = [r for r in routes if r.hops[0].token_in.lower() in loans][
-            : policy.max_route_quotes
+            :route_limit
         ]
         qs = QuoteService(chain, rpc)
+        loan_terms_cache = {}
         for route in routes:
             if self.stop.is_set() or self.store.get_state("paused", False):
                 break
             loan = loans[route.hops[0].token_in.lower()]
             try:
-                premium_bps, liquidity = await loan_terms(chain, rpc, loan.address, block)
+                if loan.address.lower() not in loan_terms_cache:
+                    loan_terms_cache[loan.address.lower()] = await loan_terms(
+                        chain, rpc, loan.address, block
+                    )
+                premium_bps, liquidity = loan_terms_cache[loan.address.lower()]
                 q = await optimize_size(
-                    route, policy, block, qs.quote_route, liquidity, premium_bps
+                    route,
+                    policy,
+                    block,
+                    qs.quote_route,
+                    liquidity,
+                    premium_bps,
+                    sample_count=sample_count,
                 )
                 payload = {
                     "mode": mode,
@@ -326,7 +375,10 @@ class Worker:
                 if once:
                     break
                 try:
-                    await asyncio.wait_for(self.stop.wait(), timeout=self.config.poll_seconds)
+                    interval = self.config.poll_seconds
+                    if self.store.get_state("mode", "observe") == "observe":
+                        interval = max(interval, OBSERVE_MIN_POLL_SECONDS)
+                    await asyncio.wait_for(self.stop.wait(), timeout=interval)
                 except TimeoutError:
                     pass
         finally:

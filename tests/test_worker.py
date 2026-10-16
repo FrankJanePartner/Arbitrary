@@ -1,6 +1,7 @@
 from pathlib import Path
 import pytest
 from flasharb.config import load_config
+from flasharb.models import Policy
 from flasharb.storage.db import Store
 
 
@@ -25,6 +26,36 @@ async def test_pause_keeps_reconciliation(tmp_path):
     w.scan = scan
     await w.tick(app.chains[0], object())
     assert seen == ["reconcile"]
+
+
+def test_observe_mode_has_bounded_quote_budget():
+    from flasharb.worker import scan_quote_budget
+
+    policy = Policy(max_route_quotes=24, size_samples=8)
+    assert scan_quote_budget(policy, "observe") == (2, 2)
+    assert scan_quote_budget(policy, "simulate") == (24, 8)
+
+
+@pytest.mark.asyncio
+async def test_pool_discovery_is_cached_and_refreshes_on_registry_change(tmp_path, monkeypatch):
+    from flasharb.worker import Worker
+
+    app = load_config(Path("config/app.yaml"))
+    store = Store(tmp_path / "db")
+    worker = Worker(app, store)
+    chain = app.chains[0]
+    calls = []
+
+    async def discover(c, rpc, block):
+        calls.append(block)
+        return [block]
+
+    monkeypatch.setattr("flasharb.worker.discover_pools", discover)
+    assert await worker.load_pools(chain, object(), 100) == [100]
+    assert await worker.load_pools(chain, object(), 101) == [100]
+    chain.registry_digest = "changed-registry"
+    assert await worker.load_pools(chain, object(), 102) == [102]
+    assert calls == [100, 102]
 
 
 @pytest.mark.asyncio

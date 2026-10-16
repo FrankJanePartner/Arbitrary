@@ -80,6 +80,25 @@ async def test_size_within_liquidity_limit():
 
 
 @pytest.mark.asyncio
+async def test_observe_single_size_sample_uses_one_quote():
+    from flasharb.strategy.sizing import optimize_size
+
+    seen = []
+
+    async def quote(r, n, b):
+        seen.append(n)
+        return Quote(
+            route=r, block_number=b, amount_in=n, amount_out=n + 10, hop_outputs=[n, n + 10]
+        )
+
+    await optimize_size(
+        route(), Policy(min_loan=100, max_loan=10000), 100, quote, liquidity=500,
+        sample_count=1,
+    )
+    assert seen == [100]
+
+
+@pytest.mark.asyncio
 async def test_quotes_share_block():
     from flasharb.market.quotes import QuoteService
 
