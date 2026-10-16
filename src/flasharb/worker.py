@@ -141,6 +141,7 @@ class Worker:
                 fresh = await rpc.head(chain.max_head_age)
                 b = int(fresh["number"], 16)
                 now = int(time.time())
+                block_timestamp = int(fresh["timestamp"], 16)
                 q = await qs.quote_route(route, q.amount_in, b)
                 premium_bps, liquidity = await loan_terms(chain, rpc, loan.address, b)
                 if q.amount_in > liquidity:
@@ -165,9 +166,11 @@ class Worker:
                     amount=q.amount_in,
                     route=r,
                     min_profit_token=1,
-                    deadline=now + policy.deadline_seconds,
+                    deadline=min(now + policy.deadline_seconds, block_timestamp + 120),
                     block_number=b,
                 )
+                if intent.deadline <= now + 3:
+                    continue
                 validate_route(r, chain.tokens, [v.router for v in chain.venues])
                 simulation = await simulate(intent, rpc)
                 if not simulation.ok:

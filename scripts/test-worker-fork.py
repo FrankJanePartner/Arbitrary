@@ -200,7 +200,7 @@ async def exercise(w3, rpc, directory, fixture_artifact):
         amount=10**6,
         route=route,
         min_profit_token=1,
-        deadline=int(time.time()) + 120,
+        deadline=min(int(time.time()) + 120, int(w3.eth.get_block(block).timestamp) + 120),
         block_number=block,
     )
     preflight_result = await simulate(preflight, rpc)
