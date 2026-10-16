@@ -10,7 +10,7 @@ import typer
 from .config import load_config, verify_chain
 from .storage.db import Store
 from .storage.ledger import summary, export_report
-from .market.rpc import from_config
+from .market.rpc import RpcError, from_config
 from .execution.signer import Signer
 from .execution.fees import estimate_fees
 from .deployment import deploy_plan as make_plan, configuration_plan, verify_deployment as verify
@@ -90,7 +90,9 @@ def doctor(config: Path = DEFAULT, chain: int | None = None, out: Path | None = 
                     {
                         "chain_id": ch.chain_id,
                         "status": "BLOCKED",
-                        "reason": str(e) if isinstance(e, ValueError) else type(e).__name__,
+                        "reason": str(e)
+                        if isinstance(e, (ValueError, RpcError))
+                        else type(e).__name__,
                     }
                 )
             finally:
