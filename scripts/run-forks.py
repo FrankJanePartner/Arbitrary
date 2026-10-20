@@ -1,6 +1,7 @@
 """Opt-in read-only forks. No real transactions; all impersonation is inside Forge."""
 
 import asyncio
+import argparse
 import json
 import os
 import time
@@ -65,11 +66,7 @@ async def run(chain):
             try:
                 output, _ = await asyncio.wait_for(proc.communicate(), 180)
                 log = output.decode(errors="replace").replace(url, "<RPC_ENDPOINT>")
-                v3_status = (
-                    "V3_PASS"
-                    if proc.returncode == 0 and "2 passed" in log
-                    else "BLOCKED"
-                )
+                v3_status = "V3_PASS" if proc.returncode == 0 and "2 passed" in log else "BLOCKED"
                 result.update(
                     block=block,
                     exit_code=proc.returncode,
@@ -98,9 +95,7 @@ async def run(chain):
                     v2_log = v2_output.decode(errors="replace").replace(url, "<RPC_ENDPOINT>")
                     result["v2_exit_code"] = v2_proc.returncode
                     result["v2_status"] = (
-                        "V2_PASS"
-                        if v2_proc.returncode == 0 and "2 passed" in v2_log
-                        else "BLOCKED"
+                        "V2_PASS" if v2_proc.returncode == 0 and "2 passed" in v2_log else "BLOCKED"
                     )
                     result["v2_log"] = v2_log[-10000:]
                     if v3_status == "V3_PASS" and result["v2_status"] == "V2_PASS":
@@ -133,11 +128,35 @@ async def run(chain):
     )
 
 
-async def main():
+def select_chains(chains, chain_id=None):
+    if chain_id is None:
+        return list(chains)
+    selected = [chain for chain in chains if chain.chain_id == chain_id]
+    if not selected:
+        raise ValueError(f"Chain {chain_id} is not configured")
+    return selected
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run read-only Solidity protocol forks for configured networks."
+    )
+    parser.add_argument(
+        "--chain",
+        type=int,
+        choices=(1, 42161, 8453, 10, 137, 43114),
+        help="Run only this network (recommended when RPC quotas are limited).",
+    )
+    return parser.parse_args()
+
+
+async def main(chain_id=None):
     # Sequential runs avoid compiler/cache races and shared public endpoint bursts.
-    for chain in load_config(Path("config/app.yaml")).chains:
+    chains = select_chains(load_config(Path("config/app.yaml")).chains, chain_id)
+    for chain in chains:
         await run(chain)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    args = parse_args()
+    asyncio.run(main(args.chain))
