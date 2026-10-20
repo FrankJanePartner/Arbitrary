@@ -334,6 +334,12 @@ async def main(port, source_chain_id=42161):
         raise ValueError("Choose one of the six configured source network IDs")
     url = f"http://127.0.0.1:{port}"
     w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 120}))
+    if source_chain_id == 137:
+        # Polygon blocks may contain a PoA-style extraData field. Normalize it
+        # before web3.py formats blocks used for local transaction gas estimation.
+        from web3.middleware import ExtraDataToPOAMiddleware
+
+        w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     require_local(w3)
     report_path = Path(f"data/local-worker-report-{source_chain_id}.json")
     report_path.parent.mkdir(exist_ok=True)
