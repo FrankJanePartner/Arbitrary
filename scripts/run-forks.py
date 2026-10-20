@@ -9,6 +9,8 @@ from pathlib import Path
 from flasharb.config import load_config
 from flasharb.market.rpc import RpcClient
 
+FORGE_COMMAND = ("node", "node_modules/@foundry-rs/forge/bin.mjs")
+
 
 async def run(chain):
     result = {
@@ -52,7 +54,7 @@ async def run(chain):
                 FORK_ROUTER=venue.router,
             )
             proc = await asyncio.create_subprocess_exec(
-                "node_modules/.bin/forge",
+                *FORGE_COMMAND,
                 "test",
                 "--root",
                 "contracts",
@@ -79,7 +81,7 @@ async def run(chain):
                     "FORK_V2_ROUTER": venue_v2.router,
                 }
                 v2_proc = await asyncio.create_subprocess_exec(
-                    "node_modules/.bin/forge",
+                    *FORGE_COMMAND,
                     "test",
                     "--root",
                     "contracts",

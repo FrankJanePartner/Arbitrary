@@ -4,7 +4,8 @@ from types import SimpleNamespace
 import pytest
 
 
-select_chains = runpy.run_path("scripts/run-forks.py")["select_chains"]
+runner = runpy.run_path("scripts/run-forks.py")
+select_chains = runner["select_chains"]
 
 
 def test_fork_runner_selects_requested_chain_only():
@@ -22,3 +23,10 @@ def test_fork_runner_defaults_to_all_chains():
 def test_fork_runner_rejects_unconfigured_chain():
     with pytest.raises(ValueError, match="Chain 10 is not configured"):
         select_chains([SimpleNamespace(chain_id=1)], 10)
+
+
+def test_fork_runner_uses_direct_forge_launcher():
+    assert runner["FORGE_COMMAND"] == (
+        "node",
+        "node_modules/@foundry-rs/forge/bin.mjs",
+    )
