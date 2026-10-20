@@ -14,8 +14,8 @@ async def run(chain):
         "chain_id": chain.chain_id,
         "registry_digest": chain.registry_digest,
         "checked_at": int(time.time()),
-        "scope": "Real Aave + Uniswap V3 Solidity integration, not complete Python worker certification",
-        "synthetic_setup": "Impersonated aToken transfers 10,000 USDC to test; new test token and two deliberately skewed real-factory pools",
+        "scope": "Real Aave + Uniswap V2/V3 Solidity adapter integration, not complete Python worker certification",
+        "synthetic_setup": "Impersonated aToken funds test; new test token and deliberately skewed pools",
         "status": "BLOCKED",
     }
     url = os.environ.get(chain.rpc_env)
@@ -38,6 +38,7 @@ async def run(chain):
                 block,
             )
             venue = next(v for v in chain.venues if v.kind == 2)
+            venue_v2 = next(v for v in chain.venues if v.kind == 0)
             env = os.environ.copy()
             env.update(
                 FOUNDRY_PROFILE="fork",
@@ -64,14 +65,52 @@ async def run(chain):
             try:
                 output, _ = await asyncio.wait_for(proc.communicate(), 180)
                 log = output.decode(errors="replace").replace(url, "<RPC_ENDPOINT>")
+                v3_status = (
+                    "V3_PASS"
+                    if proc.returncode == 0 and "2 passed" in log
+                    else "BLOCKED"
+                )
                 result.update(
                     block=block,
                     exit_code=proc.returncode,
-                    status="PROTOCOLS_PASS"
-                    if proc.returncode == 0 and "2 passed" in log
-                    else "BLOCKED",
+                    v3_status=v3_status,
+                    status="BLOCKED",
                     log=log[-10000:],
                 )
+                v2_env = env | {
+                    "FORK_V2_FACTORY": venue_v2.factory,
+                    "FORK_V2_ROUTER": venue_v2.router,
+                }
+                v2_proc = await asyncio.create_subprocess_exec(
+                    "node_modules/.bin/forge",
+                    "test",
+                    "--root",
+                    "contracts",
+                    "--match-contract",
+                    "ProtocolV2ForkTest",
+                    "-vvvv",
+                    env=v2_env,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                )
+                try:
+                    v2_output, _ = await asyncio.wait_for(v2_proc.communicate(), 180)
+                    v2_log = v2_output.decode(errors="replace").replace(url, "<RPC_ENDPOINT>")
+                    result["v2_exit_code"] = v2_proc.returncode
+                    result["v2_status"] = (
+                        "V2_PASS"
+                        if v2_proc.returncode == 0 and "2 passed" in v2_log
+                        else "BLOCKED"
+                    )
+                    result["v2_log"] = v2_log[-10000:]
+                    if v3_status == "V3_PASS" and result["v2_status"] == "V2_PASS":
+                        result["status"] = "PROTOCOLS_AND_V2_PASS"
+                except TimeoutError:
+                    v2_proc.kill()
+                    await v2_proc.communicate()
+                    result["v2_status"] = "BLOCKED"
+                    result["v2_reason"] = "V2 fork test exceeded 180 seconds"
+                    result["status"] = "BLOCKED"
             except TimeoutError:
                 proc.kill()
                 await proc.communicate()
@@ -87,7 +126,7 @@ async def run(chain):
             {
                 k: v
                 for k, v in result.items()
-                if k not in ("log", "synthetic_setup", "scope", "registry_digest")
+                if k not in ("log", "v2_log", "synthetic_setup", "scope", "registry_digest")
             }
         ),
         flush=True,

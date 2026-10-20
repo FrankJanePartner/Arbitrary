@@ -48,7 +48,7 @@ async def test_worker_fork_restores_snapshot_on_failure(tmp_path, monkeypatch):
     assert calls == ["evm_snapshot", "evm_revert"]
     import json
 
-    report = json.loads((tmp_path / "data/local-worker-report.json").read_text())
+    report = json.loads((tmp_path / "data/local-worker-report-42161.json").read_text())
     assert report == {
         "status": "BLOCKED",
         "production_authorized": False,
