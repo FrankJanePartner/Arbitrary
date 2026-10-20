@@ -49,7 +49,9 @@ contract ProtocolV2ForkTest {
   uint160 q=uint160(1<<96);
   // V2 is seeded near parity in human token units; V3 gives the return leg
   // a deliberately favorable synthetic price to create a controlled profit.
-  uint160 sqrtPrice=loan<address(intermediate)?q/500000:q*500000;
+  // Reverse the skew by token ordering: V2 buys intermediate, so the V3
+  // return leg must value intermediate more highly than the V2 pool does.
+  uint160 sqrtPrice=loan<address(intermediate)?q*500000:q/500000;
   V3Pool(v3Pool).initialize(sqrtPrice);
   V3Pool(v3Pool).mint(address(this),-887220,887220,1e16,"");
 
