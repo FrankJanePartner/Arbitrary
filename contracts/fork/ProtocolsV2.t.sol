@@ -36,13 +36,19 @@ contract ProtocolV2ForkTest {
   address v2Factory=vm.envAddress("FORK_V2_FACTORY");
   address v3Factory=vm.envAddress("FORK_FACTORY");
 
-  vm.prank(atoken); require(IERC20(loan).transfer(address(this),1e12));
+  // Keep synthetic fixture funding within the real Aave reserve liquidity
+  // available on each chain at the pinned fork block.
+  uint256 seedAmount=IERC20(loan).balanceOf(atoken)/2;
+  if(seedAmount>1e12) seedAmount=1e12;
+  uint256 pairLoan=seedAmount/100;
+  require(pairLoan>=1e8,"insufficient Aave liquidity for V2 fixture");
+  vm.prank(atoken); require(IERC20(loan).transfer(address(this),seedAmount));
   intermediate=new Token();
   intermediate.mint(address(this),1e24);
 
   v2Pair=V2Factory(v2Factory).createPair(loan,address(intermediate));
-  require(IERC20(loan).transfer(v2Pair,1e10));
-  require(intermediate.transfer(v2Pair,1e22));
+  require(IERC20(loan).transfer(v2Pair,pairLoan));
+  require(intermediate.transfer(v2Pair,pairLoan*1e12));
   V2Pair(v2Pair).mint(address(this));
 
   v3Pool=V3Factory(v3Factory).createPool(loan,address(intermediate),3000);
