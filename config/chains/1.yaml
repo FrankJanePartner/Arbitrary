@@ -28,5 +28,9 @@ venues:
   - 500
   - 3000
   - 10000
+- name: Uniswap V2
+  kind: 0
+  factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'
+  router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 enabled: false
 fee_model: evm

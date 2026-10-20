@@ -4,11 +4,11 @@
     "uniswap": "1c7597d73be0e9a3a4e44aa75b8fb212b40ea136"
   },
   "files": {
-    "chains/1.yaml": "0b02d8fac6b997daa881e66224175c79623740a120d5284ee39f30b294c4e81c",
-    "chains/42161.yaml": "c4edab3ede434839afe16f6dab55a62e95ea44c94e22389bf9a44b37df6ce28a",
-    "chains/8453.yaml": "58cdc7b9f173f1125293eb257dfbb86dd7b7799af7b002573189d4bc194a79a1",
-    "chains/10.yaml": "336f2607598f8416be1f9df15f3198f42669d72b91c2a3b8f466774664daa4b1",
-    "chains/137.yaml": "9bb5ce98b28dd2583c18564f4027391f5b7a639a98d9fa7415c248ce37ae464a",
-    "chains/43114.yaml": "8d17da0954b48af22d17915b4e2182f9f22ecc888e7a03bebc5029f609e97449"
+    "chains/1.yaml": "6648d235985ac4a399d39bb8542c13521df5b610eeffaafb42810fecae21e141",
+    "chains/42161.yaml": "b2ce99f2bfb64baee0760ae4f1fe10c5dee6f6e2b1e4e3d87960d1e2356cbf3d",
+    "chains/8453.yaml": "ae45238d4f0bb68d858c02a8e3b9a6d77f79f2a79ae11079f8de9f3dce510eeb",
+    "chains/10.yaml": "43bbf0e8a5c5137b8cd41dc653583e230996dc069edbbd659e983eedfea2e092",
+    "chains/137.yaml": "d35f1ad8a7386ed6beb4c0efdec70cfd5cfdcf2b947075b7a2567d5453a64a35",
+    "chains/43114.yaml": "6584f2674b9c79168a3ec67efcadcf98eba2ab507f0aef85a8d0f6a0f5618367"
   }
 }
