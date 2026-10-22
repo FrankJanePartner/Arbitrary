@@ -50,7 +50,7 @@ To prepare one unsigned contract deployment plan per configured network, use `uv
 
 `apply-plan` can spend gas after a local encrypted-keystore unlock and explicit confirmation. Its fee figures are estimates, particularly on OP-stack chains; this command is not certified for deployment yet. Do not use it for funded deployment until the remaining checklist gates are resolved. No keys or funding are needed to inspect the code, run unit tests or open the disconnected dashboard.
 
-The live worker requires deployment verification, local signer unlock and matching fork evidence. Those checks do not constitute an independent security audit, and the current implementation has not passed full release review. Trading can lose gas even when the flash loan and swaps revert. Profitability has not been demonstrated.
+The live worker starts only through the explicit `flasharb run --live --keystore PATH` command, an interactive start confirmation, and a local signer matching the configured operator. It verifies the current chain registry before scanning and checks the deployed executor, roles, token settings, router allowlists and pause state before considering a live transaction. The initial live-trial gas ceilings are enforced in code: at most $0.10 per transaction, $1 per network per day and $1 globally per day. Failed or reverted transactions still consume gas. This is not an independent security audit or a profitability guarantee. Keep the computer and RPC connection running; stop live submissions with `flasharb pause` or Ctrl+C. To watch it in the dashboard, use `flasharb serve --dashboard-only` in a second terminal so it does not start a competing worker.
 
 ## Local data and recovery
 

@@ -14,7 +14,8 @@ from .market.rpc import RpcError, from_config
 from .execution.signer import Signer
 from .execution.fees import estimate_fees
 from .deployment import deploy_plan as make_plan, configuration_plan, verify_deployment as verify
-from .worker import Worker
+from .models import Policy
+from .worker import Worker, validate_live_policy
 
 app = typer.Typer(no_args_is_help=True, help="Arbitrary · local flash-loan arbitrage controls")
 DEFAULT = Path("config/app.yaml")
@@ -154,7 +155,33 @@ def run_mode(config, mode, once, keystore=None):
     signer = None
     if mode == "live":
         if keystore is None:
+            s.close()
             raise typer.BadParameter("--keystore required for live")
+        chains = [
+            chain
+            for chain in c.chains
+            if s.get_state("enabled:" + str(chain.chain_id), chain.enabled)
+        ]
+        if not chains:
+            s.close()
+            raise typer.BadParameter("Enable at least one network before starting live mode")
+        policy = Policy(**s.get_state("policy", c.policy.model_dump(mode="json")))
+        try:
+            validate_live_policy(policy)
+        except ValueError as error:
+            s.close()
+            raise typer.BadParameter(str(error)) from None
+        network_names = ", ".join(f"{chain.name} ({chain.chain_id})" for chain in chains)
+        duration = "one live scan" if once else "continuous LIVE trading"
+        if not typer.confirm(
+            f"Start {duration} on {network_names}? Gas cap: up to "
+            f"${policy.max_tx_usd} per transaction, ${policy.daily_usd} per network per day, "
+            f"and ${policy.global_daily_usd} across all networks per day. Failed or reverted "
+            "transactions still spend gas.",
+            default=False,
+        ):
+            s.close()
+            raise typer.Abort()
         signer = Signer.unlock(keystore, getpass.getpass("Operator keystore password: "))
     w = Worker(c, s, signer, mode)
 
@@ -401,7 +428,10 @@ def estimate_plans(plans_dir: Path = Path("data/deploy-plans"), config: Path = D
             try:
                 p = json.loads(path.read_text())
                 ch = selected(c, p["chain_id"])
-                if p.get("broadcast") is not False or p.get("registry_digest") != ch.registry_digest:
+                if (
+                    p.get("broadcast") is not False
+                    or p.get("registry_digest") != ch.registry_digest
+                ):
                     raise ValueError("unsigned plan or registry digest mismatch")
                 rpc = from_config(ch, c)
                 await rpc.check_chain()
