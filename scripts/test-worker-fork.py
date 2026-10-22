@@ -1,4 +1,4 @@
-"""Opt-in Python worker integration on a local Arbitrum fork, never mainnet.
+"""Opt-in Python worker integration on a local EVM fork, never mainnet.
 
 Uses real Aave/Uniswap contracts, synthetic liquidity, a random ephemeral signer,
 local EVM fee accounting and test-only policy. Restores the Anvil snapshot on exit.
@@ -62,9 +62,9 @@ def compile_fixture():
     return json.loads(path.read_text())
 
 
-async def exercise(w3, rpc, directory, fixture_artifact):
+async def exercise(w3, rpc, directory, fixture_artifact, source_chain_id):
     config = load_config(Path("config/app.yaml"))
-    source = next(c for c in config.chains if c.chain_id == 42161)
+    source = next(c for c in config.chains if c.chain_id == source_chain_id)
     loan = next(t for t in source.tokens if t.loan)
     venue = next(v for v in source.venues if v.kind == 2)
     owner, customer, merchant = w3.eth.accounts[:3]
@@ -123,7 +123,7 @@ async def exercise(w3, rpc, directory, fixture_artifact):
     chain = source.model_copy(
         update={
             "chain_id": 31337,
-            "name": "Local Arbitrum fixture",
+            "name": f"Local {source.name} fixture",
             "enabled": True,
             "executor": executor.address,
             "executor_codehash": None,
@@ -292,7 +292,7 @@ async def exercise(w3, rpc, directory, fixture_artifact):
         return {
             "status": "LOCAL_WORKER_PASS",
             "production_authorized": False,
-            "source_chain_id": 42161,
+            "source_chain_id": source.chain_id,
             "local_chain_id": 31337,
             "source_registry_digest": source.registry_digest,
             "customer_usdc": str(Decimal(customer_delta) / 10**loan.decimals),
@@ -314,7 +314,7 @@ async def exercise(w3, rpc, directory, fixture_artifact):
             ],
             "limitations": [
                 "synthetic prices and liquidity",
-                "local EVM fees, not Nitro L1 posting fees",
+                "local EVM fees, not actual source-network fees",
                 "test oracle max-age 86400 seconds",
                 "single confirmation on Anvil",
                 "not evidence of available profit or production approval",
@@ -324,15 +324,24 @@ async def exercise(w3, rpc, directory, fixture_artifact):
         store.close()
 
 
-async def main(port):
+async def main(port, source_chain_id=42161):
     if not __debug__:
         raise RuntimeError("Run without Python optimization; test assertions are required")
     if port not in (8547, 18547):
         raise ValueError("Only designated local test ports are allowed")
+    supported = {1, 42161, 8453, 10, 137, 43114}
+    if source_chain_id not in supported:
+        raise ValueError("Choose one of the six configured source network IDs")
     url = f"http://127.0.0.1:{port}"
     w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 120}))
+    if source_chain_id == 137:
+        # Polygon blocks may contain a PoA-style extraData field. Normalize it
+        # before web3.py formats blocks used for local transaction gas estimation.
+        from web3.middleware import ExtraDataToPOAMiddleware
+
+        w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     require_local(w3)
-    report_path = Path("data/local-worker-report.json")
+    report_path = Path(f"data/local-worker-report-{source_chain_id}.json")
     report_path.parent.mkdir(exist_ok=True)
     report_path.write_text(json.dumps({"status": "BLOCKED", "production_authorized": False}))
     fixture = compile_fixture()
@@ -341,7 +350,7 @@ async def main(port):
     report = {"status": "BLOCKED", "production_authorized": False}
     try:
         with tempfile.TemporaryDirectory(prefix="arbitrary-local-worker-") as tmp:
-            report = await exercise(w3, rpc, Path(tmp), fixture)
+            report = await exercise(w3, rpc, Path(tmp), fixture, source_chain_id)
     finally:
         await rpc.close()
         restored = rpc_method(w3, "evm_revert", [snapshot])
@@ -349,12 +358,16 @@ async def main(port):
             raise RuntimeError("Local snapshot restore failed; restart Anvil before further tests")
         report["snapshot_restored"] = True
         Path("data").mkdir(exist_ok=True)
-        Path("data/local-worker-report.json").write_text(json.dumps(report, indent=2))
+        report_path.write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, choices=[8547, 18547], default=8547)
+    parser.add_argument(
+        "--chain", type=int, choices=[1, 42161, 8453, 10, 137, 43114], default=42161,
+        help="source network being forked (the local Anvil chain must remain 31337)",
+    )
     args = parser.parse_args()
-    asyncio.run(main(args.port))
+    asyncio.run(main(args.port, args.chain))

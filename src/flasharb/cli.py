@@ -14,7 +14,8 @@ from .market.rpc import RpcError, from_config
 from .execution.signer import Signer
 from .execution.fees import estimate_fees
 from .deployment import deploy_plan as make_plan, configuration_plan, verify_deployment as verify
-from .worker import Worker
+from .models import Policy
+from .worker import Worker, validate_live_policy
 
 app = typer.Typer(no_args_is_help=True, help="Arbitrary · local flash-loan arbitrage controls")
 DEFAULT = Path("config/app.yaml")
@@ -154,7 +155,33 @@ def run_mode(config, mode, once, keystore=None):
     signer = None
     if mode == "live":
         if keystore is None:
+            s.close()
             raise typer.BadParameter("--keystore required for live")
+        chains = [
+            chain
+            for chain in c.chains
+            if s.get_state("enabled:" + str(chain.chain_id), chain.enabled)
+        ]
+        if not chains:
+            s.close()
+            raise typer.BadParameter("Enable at least one network before starting live mode")
+        policy = Policy(**s.get_state("policy", c.policy.model_dump(mode="json")))
+        try:
+            validate_live_policy(policy)
+        except ValueError as error:
+            s.close()
+            raise typer.BadParameter(str(error)) from None
+        network_names = ", ".join(f"{chain.name} ({chain.chain_id})" for chain in chains)
+        duration = "one live scan" if once else "continuous LIVE trading"
+        if not typer.confirm(
+            f"Start {duration} on {network_names}? Gas cap: up to "
+            f"${policy.max_tx_usd} per transaction, ${policy.daily_usd} per network per day, "
+            f"and ${policy.global_daily_usd} across all networks per day. Failed or reverted "
+            "transactions still spend gas.",
+            default=False,
+        ):
+            s.close()
+            raise typer.Abort()
         signer = Signer.unlock(keystore, getpass.getpass("Operator keystore password: "))
     w = Worker(c, s, signer, mode)
 
@@ -257,6 +284,87 @@ def deployment_plan(
     output(p)
 
 
+@app.command("deploy-plans")
+def deployment_plans(
+    owner: str | None = None,
+    operator: str | None = None,
+    recipient: str | None = None,
+    merchant: str | None = None,
+    merchant_fee_bps: int | None = None,
+    out_dir: Path = Path("data/deploy-plans"),
+    config: Path = DEFAULT,
+):
+    """Create unsigned deployment plans for every configured network."""
+    c = load_config(config)
+    plans = []
+    missing = []
+    for ch in c.chains:
+        roles = (
+            owner or ch.owner,
+            operator or ch.operator,
+            recipient or ch.recipient,
+        )
+        if not all(roles):
+            missing.append(ch.chain_id)
+            continue
+        try:
+            p = make_plan(
+                ch,
+                *roles,
+                merchant or ch.merchant,
+                ch.merchant_fee_bps if merchant_fee_bps is None else merchant_fee_bps,
+            )
+        except ValueError as error:
+            raise typer.BadParameter(f"Chain {ch.chain_id}: {error}") from None
+        path = out_dir / f"deploy-plan-{ch.chain_id}.json"
+        plans.append(
+            {
+                "chain_id": ch.chain_id,
+                "network": ch.name,
+                "native_symbol": ch.native_symbol,
+                "plan": str(path),
+                "owner": p["owner"],
+                "operator": p["operator"],
+                "recipient": p["recipient"],
+                "merchant": p["merchant"],
+                "merchant_fee_bps": p["merchant_fee_bps"],
+                "broadcast": False,
+                "fee_estimate_status": (
+                    "not_supported_for_funded_deployment"
+                    if ch.fee_model == "op"
+                    else "estimate_required"
+                ),
+            }
+        )
+    if missing:
+        raise typer.BadParameter(
+            "Missing owner/operator/profit wallet addresses for chain IDs: "
+            + ", ".join(map(str, missing))
+        )
+    for entry, ch in zip(plans, c.chains):
+        p = make_plan(
+            ch,
+            entry["owner"],
+            entry["operator"],
+            entry["recipient"],
+            entry["merchant"],
+            entry["merchant_fee_bps"],
+        )
+        path = Path(entry["plan"])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(p, indent=2))
+    output(
+        {
+            "broadcast": False,
+            "plans": plans,
+            "warning": (
+                "Plans are unsigned and do not include configuration transactions. "
+                "Base and OP Mainnet remain blocked for funded deployment."
+            ),
+        }
+    )
+
+
 @app.command("configure-plan")
 def configure_plan(
     chain: int, out: Path = Path("data/configure-plan.json"), config: Path = DEFAULT
@@ -301,6 +409,69 @@ def estimate_cost(plan: Path, config: Path = DEFAULT):
             }
         finally:
             await rpc.close()
+
+    output(asyncio.run(work()))
+
+
+@app.command("estimate-plans")
+def estimate_plans(plans_dir: Path = Path("data/deploy-plans"), config: Path = DEFAULT):
+    """Estimate unsigned deployment plans for all chains in a plan directory."""
+    c = load_config(config)
+    files = sorted(plans_dir.glob("deploy-plan-*.json"))
+    if not files:
+        raise typer.BadParameter(f"No deploy-plan-*.json files in {plans_dir}")
+
+    async def work():
+        results = []
+        for path in files:
+            rpc = None
+            try:
+                p = json.loads(path.read_text())
+                ch = selected(c, p["chain_id"])
+                if (
+                    p.get("broadcast") is not False
+                    or p.get("registry_digest") != ch.registry_digest
+                ):
+                    raise ValueError("unsigned plan or registry digest mismatch")
+                rpc = from_config(ch, c)
+                await rpc.check_chain()
+                fee = await estimate_fees(p["transaction"], ch, rpc)
+                results.append(
+                    {
+                        "chain_id": ch.chain_id,
+                        "network": ch.name,
+                        "status": "ESTIMATE_ONLY",
+                        "native_symbol": ch.native_symbol,
+                        "max_native_cost": str(Decimal(fee.max_native_cost) / 10**18),
+                        "includes_configuration": False,
+                        "funded_deployment_supported_by_fee_model": ch.fee_model != "op",
+                        "fee_components": fee.components,
+                        "warning": (
+                            "L1/operator components are estimates, not a hard spending cap"
+                            if ch.fee_model == "op"
+                            else "Snapshot estimate only; recheck before signing"
+                        ),
+                    }
+                )
+            except Exception as error:
+                results.append(
+                    {
+                        "plan": str(path),
+                        "status": "BLOCKED",
+                        "reason": type(error).__name__,
+                    }
+                )
+            finally:
+                if rpc:
+                    await rpc.close()
+        return {
+            "broadcast": False,
+            "results": results,
+            "warning": (
+                "These estimates cover contract creation only. They exclude token/router setup, "
+                "live trading, and any future exchange integrations."
+            ),
+        }
 
     output(asyncio.run(work()))
 

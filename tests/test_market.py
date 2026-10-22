@@ -92,7 +92,11 @@ async def test_observe_single_size_sample_uses_one_quote():
         )
 
     await optimize_size(
-        route(), Policy(min_loan=100, max_loan=10000), 100, quote, liquidity=500,
+        route(),
+        Policy(min_loan=100, max_loan=10000),
+        100,
+        quote,
+        liquidity=500,
         sample_count=1,
     )
     assert seen == [100]
@@ -119,6 +123,34 @@ async def test_quotes_share_block():
     rpc = RPC()
     result = await QuoteService(cfg, rpc).quote_route(r, 1000, 123)
     assert rpc.blocks == [123, 123] and result.amount_out == 1200
+
+
+@pytest.mark.asyncio
+async def test_uniswap_v2_routes_use_router_amounts_out():
+    from flasharb.market.quotes import QuoteService
+    from flasharb.config import load_config
+    from pathlib import Path
+
+    cfg = load_config(Path("config/app.yaml")).chains[0]
+    venue = next(v for v in cfg.venues if v.kind == 0)
+    r = route()
+    for hop in r.hops:
+        hop.kind = 0
+        hop.router = venue.router
+        hop.fee = 0
+
+    class V2RPC:
+        calls = []
+
+        async def contract_call(self, to, sig, types, args, out, block):
+            self.calls.append((to, sig, args, block))
+            return ([args[0], args[0] + 10],)
+
+    rpc = V2RPC()
+    result = await QuoteService(cfg, rpc).quote_route(r, 100, 123)
+    assert result.amount_out == 120
+    assert [call[1] for call in rpc.calls] == ["getAmountsOut(uint256,address[])"] * 2
+    assert all(call[3] == 123 for call in rpc.calls)
 
 
 @pytest.mark.asyncio

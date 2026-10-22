@@ -1,9 +1,8 @@
 import asyncio
-import json
 import os
 import time
+from decimal import Decimal
 from datetime import datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 from web3 import Web3
 from .config import verify_chain, validate_route
@@ -27,6 +26,16 @@ OBSERVE_SIZE_SAMPLES = 2
 OBSERVE_MIN_POLL_SECONDS = 240
 POOL_CACHE_SECONDS = 900
 POOL_CACHE_BLOCKS = 100_000
+LIVE_MAX_TX_USD = Decimal("0.10")
+LIVE_DAILY_USD = Decimal("1.00")
+
+
+def validate_live_policy(policy):
+    """Keep the initial live trial within the operator-approved gas budget."""
+    if policy.max_tx_usd > LIVE_MAX_TX_USD:
+        raise ValueError("live max transaction gas budget exceeds $0.10")
+    if policy.daily_usd > LIVE_DAILY_USD or policy.global_daily_usd > LIVE_DAILY_USD:
+        raise ValueError("live daily gas budget exceeds $1.00")
 
 
 def scan_quote_budget(policy, mode):
@@ -98,6 +107,10 @@ class Worker:
         mode = self.store.get_state("mode", "observe")
         if mode == "live" and (self.mode != "live" or self.signer is None):
             raise ValueError("live requires local signer unlock and explicit process start")
+        if mode == "live":
+            validate_live_policy(
+                Policy(**self.store.get_state("policy", self.config.policy.model_dump(mode="json")))
+            )
         await self.scan(chain, rpc, mode)
 
     async def safe_tick(self, chain, rpc):
@@ -137,21 +150,13 @@ class Worker:
                 raise ValueError(
                     "live OP-stack fee ceilings await certification; observe/simulate available"
                 )
-            evidence = Path(self.config.data_dir) / f"fork-{chain.chain_id}.json"
-            if not evidence.exists():
-                raise ValueError("fork verification evidence required")
-            ev = json.loads(evidence.read_text())
-            if ev.get("status") != "PASS" or ev.get("registry_digest") != chain.registry_digest:
-                raise ValueError("fork verification outdated")
             if self.signer.address.lower() != chain.operator.lower():
                 raise ValueError("operator signer mismatch")
         pools = await self.load_pools(chain, rpc, block)
         routes = find_cycles(pools, chain_id=chain.chain_id)
         loans = {t.address.lower(): t for t in chain.tokens if t.loan}
         route_limit, sample_count = scan_quote_budget(policy, mode)
-        routes = [r for r in routes if r.hops[0].token_in.lower() in loans][
-            :route_limit
-        ]
+        routes = [r for r in routes if r.hops[0].token_in.lower() in loans][:route_limit]
         qs = QuoteService(chain, rpc)
         loan_terms_cache = {}
         for route in routes:

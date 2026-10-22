@@ -13,6 +13,44 @@ def test_six_chain_ids():
     assert not any(c.enabled for c in cfg.chains)
 
 
+def test_official_uniswap_v2_routers_are_configured_on_all_six_chains():
+    from flasharb.config import load_config
+
+    cfg = load_config(ROOT / "config/app.yaml")
+    expected = {
+        1: (
+            "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+            "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+        ),
+        42161: (
+            "0xf1D7CC64Fb4452F05c498126312eBE29f30Fbcf9",
+            "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+        ),
+        8453: (
+            "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6",
+            "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+        ),
+        10: (
+            "0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf",
+            "0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2",
+        ),
+        137: (
+            "0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C",
+            "0xedf6066a2b290C185783862C7F4776A2C8077AD1",
+        ),
+        43114: (
+            "0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C",
+            "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+        ),
+    }
+    for chain in cfg.chains:
+        v2 = next(v for v in chain.venues if v.kind == 0)
+        factory, router = expected[chain.chain_id]
+        assert v2.factory.lower() == factory.lower()
+        assert v2.router.lower() == router.lower()
+        assert v2.quoter is None
+
+
 def test_unknown_token_rejected():
     from flasharb.models import Hop, Route, Token
     from flasharb.config import validate_route

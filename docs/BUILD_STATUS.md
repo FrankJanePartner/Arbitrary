@@ -1,4 +1,4 @@
-# Build status — 16 October 2026
+# Build status — 20 October 2026
 
 **Production release: BLOCKED.** Commercial wallet splitting and the listed reliability fixes are implemented. No mainnet funds have been spent. This status does not claim every original acceptance gate is complete.
 
@@ -13,10 +13,11 @@
 - Resumable deployment plans keyed to durable journal records; repeated plans do not blindly redeploy.
 - Password/CSRF-protected dashboard, dashboard-only mode, CLI, CSV/JSON reports and backup preservation.
 - Direct Chainlink feed configuration with L2 sequencer outage/grace checks, plus six network registries.
+- Official Uniswap V2 factory/router entries are now configured alongside Uniswap V3 on all six networks. Static configuration and V2 quote-path tests pass. The per-chain fork runner now includes V2-to-V3 execution and atomic-revert tests, but these tests have not yet been run against the new V2 entries; live code and pair liquidity remain unverified.
 
 ## Verification evidence
 
-- **63 Python tests pass**, including signed local EVM execution, merchant/customer payouts, canonical receipt accounting, authenticated export, and local-fork harness guards.
+- **71 Python tests pass**, including signed local EVM execution, merchant/customer payouts, canonical receipt accounting, authenticated export, local-fork harness guards, and the V2 quote path.
 - **15 Solidity unit tests pass**, including 256 randomized treasury-preservation runs, merchant split/minimum, failed merchant payout and router reentry.
 - Python lint and format checks pass. Python distribution builds successfully and installs in a clean environment; the CLI help runs from that installation.
 - Slither 0.11.3 completed with 13 findings (0 High); triage is in [SECURITY.md](SECURITY.md).
@@ -32,10 +33,10 @@
 
 ## Remaining before production
 
-1. The combined Python worker + real-protocol fork acceptance test **passes on Arbitrum (42161)** on the operator desktop using a local Anvil fork. Five other configured networks still need the same combined workflow. This local-only result is not production authorization; no live-authorization PASS files have been manufactured.
+1. The combined Python worker + real-protocol fork acceptance test **passes on Arbitrum (42161)** on the operator desktop using a local Anvil fork. The harness now accepts each configured source chain with `--chain`, but five other networks still need desktop runs. Newly configured Uniswap V2 routes need live RPC verification and the new controlled fork tests to run on each network. This local-only result is not production authorization; no live-authorization PASS files have been manufactured.
 2. Resolve the **Base/OP hard fee bound** requirement. L1/operator fees are buffered estimates, so funded execution, deployment and recovery on those chains remain blocked.
 3. Validate Docker runtime and full desktop/mobile visual acceptance. Docker is unavailable in this environment; image/Compose files are supplied but not called tested.
-4. Supply actual customer/operator/merchant addresses and administrative owner; configure RPC and local encrypted signing keys. The selected merchant rate is 5%; public addresses remain to be supplied during desktop setup.
+4. Reconfirm the customer/operator/merchant addresses and administrative owner for each network from the private desktop environment; configure and verify RPCs and local encrypted signing keys. The selected merchant rate is 5%. No private keys or local `.env` values belong in the repository.
 5. Measure deployment costs, deploy/verify chosen networks, fund gas and perform explicit mainnet activation. Those are deployment steps, not completed work.
 
 The baseline uses USDC loans/profits; merchant fees are USDC for those routes. Gas uses each chain's native currency. Price-feed interface probes use a wider freshness window to establish compatibility; live policy remains strict and may reject older feed rounds.

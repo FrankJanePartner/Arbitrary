@@ -25,7 +25,9 @@ def test_commercial_plan_exposes_merchant_terms():
     from flasharb.deployment import deploy_plan
     import pytest
 
-    c = load_config(Path("config/app.yaml")).chains[0]
+    c = load_config(Path("config/app.yaml")).chains[0].model_copy(
+        update={"merchant": "0x0000000000000000000000000000000000000000"}
+    )
     a = "0x" + "11" * 20
     merchant = "0x" + "44" * 20
     p = deploy_plan(c, a, a, a, merchant, 250)

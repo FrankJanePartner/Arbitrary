@@ -28,6 +28,10 @@ venues:
   - 500
   - 3000
   - 10000
+- name: Uniswap V2
+  kind: 0
+  factory: '0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf'
+  router: '0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2'
 enabled: false
 fee_model: op
 sequencer_feed: '0x371EAD81c9102C9BF4874A9075FFFf170F2Ee389'

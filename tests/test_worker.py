@@ -36,6 +36,19 @@ def test_observe_mode_has_bounded_quote_budget():
     assert scan_quote_budget(policy, "simulate") == (24, 8)
 
 
+def test_live_trial_enforces_operator_approved_gas_caps():
+    from decimal import Decimal
+    from flasharb.worker import validate_live_policy
+
+    validate_live_policy(Policy())
+    with pytest.raises(ValueError, match="transaction gas budget"):
+        validate_live_policy(Policy(max_tx_usd=Decimal("0.11")))
+    with pytest.raises(ValueError, match="daily gas budget"):
+        validate_live_policy(Policy(daily_usd=Decimal("1.01")))
+    with pytest.raises(ValueError, match="daily gas budget"):
+        validate_live_policy(Policy(global_daily_usd=Decimal("1.01")))
+
+
 @pytest.mark.asyncio
 async def test_pool_discovery_is_cached_and_refreshes_on_registry_change(tmp_path, monkeypatch):
     from flasharb.worker import Worker
