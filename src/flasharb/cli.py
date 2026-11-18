@@ -85,7 +85,11 @@ def doctor(config: Path = DEFAULT, chain: int | None = None, out: Path | None = 
             try:
                 rpc = from_config(ch, c)
                 r = await verify_chain(ch, rpc)
-                result.append(r.model_dump() | {"status": "PASS" if r.ok else "BLOCKED"})
+                result.append(
+                    r.model_dump()
+                    | {"status": "PASS" if r.ok else "BLOCKED"}
+                    | {"rpc_usage": rpc.usage_snapshot()}
+                )
             except Exception as e:
                 result.append(
                     {
@@ -94,6 +98,7 @@ def doctor(config: Path = DEFAULT, chain: int | None = None, out: Path | None = 
                         "reason": str(e)
                         if isinstance(e, (ValueError, RpcError))
                         else type(e).__name__,
+                        **({"rpc_usage": rpc.usage_snapshot()} if rpc else {}),
                     }
                 )
             finally:

@@ -34,6 +34,42 @@ def test_observe_mode_has_bounded_quote_budget():
     policy = Policy(max_route_quotes=24, size_samples=8)
     assert scan_quote_budget(policy, "observe") == (2, 2)
     assert scan_quote_budget(policy, "simulate") == (24, 8)
+    from flasharb.config import load_config
+    from pathlib import Path
+    config = load_config(Path("config/app.yaml"))
+    assert scan_quote_budget(policy, "live", config) == (6, 2)
+
+
+def test_route_window_rotates_without_starving_later_routes():
+    from flasharb.worker import rotate_routes, select_live_routes
+    from flasharb.models import Hop, Route
+
+    routes = list("abcdef")
+    first, cursor = rotate_routes(routes, 2, 0)
+    second, cursor = rotate_routes(routes, 2, cursor)
+    third, cursor = rotate_routes(routes, 2, cursor)
+    assert first + second + third == routes
+    assert cursor == 0
+
+    a, b = "0x" + "11" * 20, "0x" + "22" * 20
+    mixed = [
+        Route(
+            chain_id=1,
+            hops=[
+                Hop(kind=2, router="0x" + "33" * 20, pool="0x" + f"{i + 1:040x}", token_in=a, token_out=b, fee=500),
+                Hop(kind=2, router="0x" + "66" * 20, pool="0x" + f"{i + 20:040x}", token_in=b, token_out=a, fee=3000),
+            ],
+        )
+        for i in range(6)
+    ]
+    chosen, next_cursor, budget, planned = select_live_routes(
+        mixed, max_routes=6, samples=2, daily_limit=10000, interval_seconds=240
+    )
+    assert len(chosen) == 3 and budget == 12 and planned == 12
+    later, final_cursor, _, _ = select_live_routes(
+        mixed, max_routes=6, samples=2, daily_limit=10000, interval_seconds=240, cursor=next_cursor
+    )
+    assert chosen + later == mixed and final_cursor == 0
 
 
 def test_live_trial_enforces_operator_approved_gas_caps():

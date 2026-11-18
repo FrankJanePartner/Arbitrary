@@ -33,8 +33,9 @@ def test_fees_not_double_counted():
     price = PricePoint(native_usd=Decimal(10) ** 18, loan_usd=1, updated_at=100, loan_decimals=0)
     p = Policy(min_profit_usd=0, safety_buffer_usd=5, max_tx_usd=100)
     decision = evaluate_profit(q, 10, fees, price, p, now=101)
-    assert decision.expected_net_usd == 65
-    assert decision.min_profit_token == 25
+    assert decision.expected_net_usd == Decimal("60.604400")
+    assert decision.min_profit_token == 30
+    assert decision.slippage_allowance_usd == Decimal("4.395600")
     assert decision.eligible
 
 
@@ -126,6 +127,42 @@ async def test_quotes_share_block():
 
 
 @pytest.mark.asyncio
+async def test_route_size_search_batches_contiguous_v3_hops():
+    from pathlib import Path
+    from flasharb.market.quotes import QuoteService
+    from flasharb.config import load_config
+
+    cfg = load_config(Path("config/app.yaml")).chains[0]
+    venue = next(v for v in cfg.venues if v.kind == 2)
+    r = route()
+    for hop in r.hops:
+        hop.router = venue.router
+
+    class RPC:
+        calls = []
+
+        async def contract_call(self, to, signature, types, args, outputs, block):
+            self.calls.append((signature, args, block))
+            return (1200, [], [], 90000)
+
+    rpc = RPC()
+    result = await QuoteService(cfg, rpc).quote_route(r, 1000, 123, detailed=False)
+    assert result.amount_out == 1200 and result.hop_outputs == []
+    assert len(rpc.calls) == 1
+    signature, args, quoted_block = rpc.calls[0]
+    assert signature == "quoteExactInput(bytes,uint256)"
+    assert args[1] == 1000 and quoted_block == 123
+    expected_path = (
+        bytes.fromhex(r.hops[0].token_in[2:])
+        + r.hops[0].fee.to_bytes(3, "big")
+        + bytes.fromhex(r.hops[0].token_out[2:])
+        + r.hops[1].fee.to_bytes(3, "big")
+        + bytes.fromhex(r.hops[1].token_out[2:])
+    )
+    assert args[0] == expected_path
+
+
+@pytest.mark.asyncio
 async def test_uniswap_v2_routes_use_router_amounts_out():
     from flasharb.market.quotes import QuoteService
     from flasharb.config import load_config
@@ -201,5 +238,31 @@ def test_merchant_fee_reduces_customer_net_and_keeps_customer_minimum():
     price = PricePoint(native_usd=Decimal(10) ** 18, loan_usd=1, updated_at=100, loan_decimals=0)
     policy = Policy(min_profit_usd=60, safety_buffer_usd=5, max_tx_usd=100)
     d = evaluate_profit(q, 10, fees, price, policy, now=101, merchant_fee_bps=1000)
-    assert d.expected_net_usd == 56 and not d.eligible
-    assert d.min_profit_token == 85  # minimum customer proceeds, merchant share excluded
+    assert d.expected_net_usd == Decimal("51.604400") and not d.eligible
+    assert d.min_profit_token == 99  # gross amount whose customer share clears the cost-adjusted floor
+    assert d.gross_usd == 100
+    assert d.flash_loan_fee_usd == 10
+    assert d.merchant_fee_usd == 9
+    assert d.safety_buffer_usd == 5
+
+
+def test_small_positive_net_profit_is_eligible_at_configured_floor():
+    from flasharb.strategy.economics import evaluate_profit
+
+    q = Quote(
+        route=route(), block_number=10, amount_in=1000, amount_out=1007, hop_outputs=[1000, 1007]
+    )
+    fees = FeeEstimate(
+        gas_limit=1,
+        max_fee_per_gas=1,
+        priority_fee=0,
+        max_native_cost=1,
+        expected_native_cost=1,
+        components={},
+    )
+    price = PricePoint(native_usd=Decimal(10) ** 18, loan_usd=1, updated_at=100, loan_decimals=0)
+    policy = Policy(min_profit_usd=Decimal("0.50"), safety_buffer_usd=Decimal("0.10"), max_tx_usd=2)
+    d = evaluate_profit(q, 1, fees, price, policy, now=101)
+    assert d.eligible
+    assert d.expected_net_usd == Decimal("0.876028")
+    assert d.min_profit_token == 6
