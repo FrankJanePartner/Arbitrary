@@ -70,7 +70,7 @@ class ChainConfig(Model):
 class Policy(Model):
     min_loan: int = Field(default=100_000_000, gt=0)
     max_loan: int = Field(default=10_000_000_000, gt=0)
-    size_samples: int = Field(default=8, ge=2, le=32)
+    size_samples: int = Field(default=2, ge=2, le=32)
     min_profit_usd: Decimal = Field(default=Decimal("0.25"), ge=0)
     safety_buffer_usd: Decimal = Field(default=Decimal("0.10"), ge=0)
     max_tx_usd: Decimal = Field(default=Decimal("0.10"), gt=0)
@@ -80,7 +80,7 @@ class Policy(Model):
     slippage_bps: int = Field(default=20, ge=0, le=500)
     deadline_seconds: int = Field(default=30, ge=5, le=120)
     price_max_age: int = Field(default=300, ge=1)
-    max_route_quotes: int = Field(default=24, ge=1, le=100)
+    max_route_quotes: int = Field(default=6, ge=1, le=100)
 
     @model_validator(mode="after")
     def bounds(self):
@@ -96,6 +96,9 @@ class AppConfig(Model):
     data_dir: str = "data"
     timezone: str = "Africa/Lagos"
     poll_seconds: int = Field(default=12, ge=1)
+    live_poll_seconds: int = Field(default=240, ge=30, le=3600)
+    live_max_route_quotes: int = Field(default=2, ge=1, le=100)
+    live_size_samples: int = Field(default=2, ge=2, le=32)
     rpc_rps: int = Field(default=5, ge=1, le=15)
     rpc_daily_calls: int = Field(default=10000, ge=1)
 
@@ -172,6 +175,13 @@ class ProfitDecision(Model):
     expected_net_usd: Decimal
     gas_usd: Decimal
     reasons: list[str]
+    gross_usd: Decimal = Decimal("0")
+    flash_loan_fee_usd: Decimal = Decimal("0")
+    merchant_fee_usd: Decimal = Decimal("0")
+    slippage_allowance_usd: Decimal = Decimal("0")
+    safety_buffer_usd: Decimal = Decimal("0")
+    min_profit_usd: Decimal = Decimal("0")
+    slippage_tolerance_bps: int = 0
 
 
 class Intent(Model):

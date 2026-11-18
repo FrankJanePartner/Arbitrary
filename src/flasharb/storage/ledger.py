@@ -1,5 +1,6 @@
 import csv
 import json
+from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 
@@ -41,12 +42,60 @@ def summary(store):
     }
 
 
+def activity_summary(store):
+    """Summarize genuine persisted scan events and route rejections."""
+    logs = store.path.parent / "logs"
+    counts = Counter()
+    rejections = Counter()
+    first = last = None
+    for path in sorted(logs.glob("worker.jsonl*")):
+        try:
+            with path.open(encoding="utf-8") as stream:
+                for line in stream:
+                    try:
+                        row = json.loads(line)
+                    except (ValueError, TypeError):
+                        continue
+                    event = row.get("event")
+                    if not event:
+                        continue
+                    counts[event] += 1
+                    timestamp = row.get("timestamp")
+                    first = min(first, timestamp) if first and timestamp else (timestamp or first)
+                    last = max(last, timestamp) if last and timestamp else (timestamp or last)
+                    if event == "opportunity_rejected":
+                        rejections.update(str(x) for x in row.get("reasons", []))
+        except OSError:
+            continue
+    observation_rows = store.rows("SELECT chain_id,payload FROM observations")
+    observed_by_chain = Counter()
+    for row in observation_rows:
+        observed_by_chain[str(row["chain_id"])] += 1
+    return {
+        "first_event": first,
+        "last_event": last,
+        "event_counts": dict(counts),
+        "rejection_reasons": dict(rejections),
+        "stored_observations_by_chain": dict(observed_by_chain),
+        "source": "worker JSONL event log and persisted observations",
+    }
+
+
 def export_report(store, path, format="json"):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = report_rows(store)
     if format == "json":
-        path.write_text(json.dumps({"summary": summary(store), "executions": rows}, indent=2))
+        path.write_text(
+            json.dumps(
+                {
+                    "summary": summary(store),
+                    "activity": activity_summary(store),
+                    "executions": rows,
+                },
+                indent=2,
+            )
+        )
     elif format == "csv":
         keys = sorted({k for r in rows for k in r} or {"id", "chain_id", "status"})
         with path.open("w", newline="") as f:

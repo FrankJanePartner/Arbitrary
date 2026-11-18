@@ -1,12 +1,13 @@
-# RPC request budget
+# RPC use, health, and reporting
 
-The worker's RPC quota is a local safety cap stored in the application's SQLite database. It is counted separately by chain and UTC day. Reaching the cap blocks further requests for that chain until the UTC date changes; `doctor` also uses the same quota.
+`rpc_daily_calls` is an application-side safety cap persisted in SQLite per chain and UTC day. Every JSON-RPC HTTP attempt counts, including retries. `doctor` uses the same counter, so repeated checks can consume the same allowance as the worker. Hitting this limit is distinct from a provider HTTP 429, HTTP 403, or a provider dashboard credit limit. `doctor` now reports both local usage and per-process/provider health counters; check `status` for worker health. The counter resets at UTC midnight.
 
-Observe mode is intentionally paced to reduce RPC use:
+Observe mode waits at least four minutes between scans, checks at most two routes with up to two loan-size samples, caches discovered pools in memory for up to 15 minutes, and reads flash-loan terms once per asset per scan.
 
-- It waits at least four minutes between scans, even if `poll_seconds` is lower.
-- It evaluates at most two routes and two loan sizes per scan.
-- It reuses discovered pools for up to 15 minutes, and refreshes sooner if the chain registry changes or the block number moves backwards.
-- It reads flash-loan terms once per loan asset per scan.
+Live mode defaults to a four-minute scan interval, up to six routes, and two size samples per route. Routes rotate between scans so a fixed subset is not permanently ignored. Route sizing batches consecutive hops that use one router into a single quote call. The worker budgets quote-search calls to roughly 65% of the configured daily cap, subtracting a six-call-per-scan planning allowance for ordinary overhead, and selects as many routes as fit under that budget. At the 10,000-call default, that allows at most 12 quote-search RPC calls per scan, roughly 4,320 per chain per day; the remaining allowance is for head checks, price reads, pool discovery, fresh-candidate checks, simulations, receipt reconciliation and retries. Retries, multiple live candidates, or unusually expensive pool discovery can still exceed the target; the local daily cap remains the final stop.
 
-This trades freshness and coverage for a better chance of staying within a small provider quota. It does not change simulate or live polling. Those modes can use substantially more RPC calls, and the local daily cap still stops the worker when reached. Provider billing and request-unit limits are separate from this local call counter.
+The live cadence and quote limits are configurable in `config/app.yaml` with `live_poll_seconds`, `live_max_route_quotes`, and `live_size_samples`. Raising them increases RPC use and may exhaust the local or provider allowance earlier. The dashboard's route and size settings can further reduce work, but cannot exceed those application-wide live caps or the computed per-scan RPC budget.
+
+RPC calls are serialized through a per-client requests-per-second limiter. Transient failures use capped exponential backoff with jitter; a provider `Retry-After` is honored, and repeated rate limits temporarily cool down that network. Chain-ID checks are cached for five minutes. The scan reuses its reconciliation block instead of fetching the same head twice, and live deployment verification is refreshed every five minutes rather than every block. Pools remain cached in memory for 15 minutes. The configured providers are HTTP endpoints, so this implementation does not claim WebSocket subscriptions or JSON-RPC batch support.
+
+Live terminal output and persistent JSONL logs are written to `data/logs/worker.jsonl` (rotated at 10 MB, five backups). The log records network health, blocks, pool/route coverage, quote results, economics, rejection reasons, simulation outcomes, transaction hashes, and reconciled receipts. `flasharb report` adds activity counts and rejection reasons to its JSON summary; the report's realized financial totals come from reconciled on-chain receipts and use submission-time price snapshots. They exclude infrastructure costs.
